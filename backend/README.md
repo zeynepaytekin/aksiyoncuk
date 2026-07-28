@@ -385,7 +385,9 @@ Example:
     "professionalTitle": "Director"
   },
   "ownedByCurrentUser": true,
-  "commentCount": 0
+  "commentCount": 0,
+  "likeCount": 0,
+  "likedByCurrentUser": false
 }
 ```
 
@@ -486,6 +488,51 @@ Invoke-RestMethod -Method Delete `
 Missing comments return `COMMENT_NOT_FOUND`; non-owner deletion returns
 `COMMENT_DELETE_FORBIDDEN`. Replies, editing, comment likes, mentions,
 notifications, moderation, and attachments are not implemented.
+
+## Post likes
+
+| Method | Endpoint | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `PUT` | `/api/v1/posts/{postId}/like` | Bearer token | Idempotently like a post |
+| `DELETE` | `/api/v1/posts/{postId}/like` | Bearer token | Idempotently remove the current user's like |
+
+Both operations return HTTP 200. Repeating a like keeps exactly one database
+row, and repeating an unlike remains successful:
+
+```json
+{
+  "postId": "392951b8-871d-46af-8087-cefc679f3b1c",
+  "likedByCurrentUser": true,
+  "likeCount": 12
+}
+```
+
+Public post responses include the real `likeCount` and always return
+`likedByCurrentUser: false`. Authenticated post responses calculate the flag for
+the access-token subject.
+
+curl:
+
+```bash
+curl -X PUT http://localhost:8080/api/v1/posts/POST_ID/like \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+curl -X DELETE http://localhost:8080/api/v1/posts/POST_ID/like \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+```
+
+PowerShell:
+
+```powershell
+Invoke-RestMethod -Method Put `
+  -Uri "http://localhost:8080/api/v1/posts/$($post.id)/like" `
+  -Headers $headers
+Invoke-RestMethod -Method Delete `
+  -Uri "http://localhost:8080/api/v1/posts/$($post.id)/like" `
+  -Headers $headers
+```
+
+Comment likes, reaction types, notifications, analytics, trending logic, and
+realtime updates are not implemented.
 
 Production uses the same required database environment variables with the `prod` profile. API documentation is disabled in that profile:
 

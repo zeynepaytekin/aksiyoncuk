@@ -65,7 +65,9 @@ public class PostService {
             user.getUsername(),
             user.getFullName(),
             profile.getProfessionalTitle(),
-            0),
+            0,
+            0,
+            false),
         user.getId());
   }
 
@@ -73,7 +75,8 @@ public class PostService {
   public PostPageResponse globalFeed(int page, int size, AuthenticatedUser principal) {
     validatePagination(page, size);
     return response(
-        postRepository.findFeed(PageRequest.of(page, size, NEWEST_FIRST)), userId(principal));
+        postRepository.findFeed(userId(principal), PageRequest.of(page, size, NEWEST_FIRST)),
+        userId(principal));
   }
 
   @Transactional(readOnly = true)
@@ -81,14 +84,14 @@ public class PostService {
     validatePagination(page, size);
     return response(
         postRepository.findByAuthorIdProjected(
-            principal.userId(), PageRequest.of(page, size, NEWEST_FIRST)),
+            principal.userId(), principal.userId(), PageRequest.of(page, size, NEWEST_FIRST)),
         principal.userId());
   }
 
   @Transactional(readOnly = true)
   public PostResponse find(UUID postId, AuthenticatedUser principal) {
     return postRepository
-        .findProjectedById(postId)
+        .findProjectedById(postId, userId(principal))
         .map(row -> PostResponse.from(row, userId(principal)))
         .orElseThrow(PostNotFoundException::new);
   }

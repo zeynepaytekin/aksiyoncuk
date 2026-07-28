@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.aksiyoncuk.auth.repository.RefreshTokenRepository;
 import com.aksiyoncuk.post.comment.repository.PostCommentRepository;
+import com.aksiyoncuk.post.like.repository.PostLikeRepository;
 import com.aksiyoncuk.post.repository.PostRepository;
 import com.aksiyoncuk.profile.repository.ProfileRepository;
 import com.aksiyoncuk.user.repository.UserRepository;
@@ -59,6 +61,7 @@ class PostIntegrationTest {
   @Autowired private ObjectMapper objectMapper;
   @Autowired private PostRepository postRepository;
   @Autowired private PostCommentRepository commentRepository;
+  @Autowired private PostLikeRepository likeRepository;
   @Autowired private RefreshTokenRepository refreshTokenRepository;
   @Autowired private ProfileRepository profileRepository;
   @Autowired private UserRepository userRepository;
@@ -69,6 +72,7 @@ class PostIntegrationTest {
 
   @BeforeEach
   void setUp() throws Exception {
+    likeRepository.deleteAll();
     commentRepository.deleteAll();
     postRepository.deleteAll();
     refreshTokenRepository.deleteAll();
@@ -186,12 +190,12 @@ class PostIntegrationTest {
   }
 
   @Test
-  void flywayAppliedAllSixMigrations() {
+  void flywayAppliedAllSevenMigrations() {
     var versions =
         jdbcTemplate.queryForList(
             "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank",
             String.class);
-    assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6");
+    assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7");
   }
 
   @Test
@@ -317,6 +321,125 @@ class PostIntegrationTest {
         .andExpect(status().isNoContent());
 
     assertThat(commentRepository.countByPostId(postId)).isZero();
+  }
+
+  @Test
+  void likeIsAuthenticatedIdempotentAndVisibleOnlyToLiker() throws Exception {
+    var postId =
+        createdId(create(firstToken, "Like me").andReturn().getResponse().getContentAsString());
+
+    mockMvc
+        .perform(put("/api/v1/posts/{postId}/like", postId))
+        .andExpect(status().isUnauthorized());
+
+    var response =
+        mockMvc
+            .perform(
+                put("/api/v1/posts/{postId}/like", postId)
+                    .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.likedByCurrentUser").value(true))
+            .andExpect(jsonPath("$.likeCount").value(1))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    mockMvc
+        .perform(
+            put("/api/v1/posts/{postId}/like", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.likeCount").value(1));
+
+    assertThat(likeRepository.countByPostId(postId)).isEqualTo(1);
+    assertThat(response).doesNotContainIgnoringCase("email").doesNotContainIgnoringCase("password");
+
+    mockMvc
+        .perform(get("/api/v1/posts/{postId}", postId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.likeCount").value(1))
+        .andExpect(jsonPath("$.likedByCurrentUser").value(false));
+    mockMvc
+        .perform(
+            get("/api/v1/posts/{postId}", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.likedByCurrentUser").value(true));
+    mockMvc
+        .perform(
+            get("/api/v1/posts/{postId}", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(secondToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.likedByCurrentUser").value(false));
+  }
+
+  @Test
+  void unlikeIsIdempotentAndDecreasesCount() throws Exception {
+    var postId =
+        createdId(create(firstToken, "Unlike me").andReturn().getResponse().getContentAsString());
+    mockMvc
+        .perform(
+            put("/api/v1/posts/{postId}/like", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isOk());
+
+    mockMvc
+        .perform(
+            delete("/api/v1/posts/{postId}/like", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.likedByCurrentUser").value(false))
+        .andExpect(jsonPath("$.likeCount").value(0));
+    mockMvc
+        .perform(
+            delete("/api/v1/posts/{postId}/like", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.likeCount").value(0));
+  }
+
+  @Test
+  void likeMissingMalformedAndCascadesAreCorrect() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/v1/posts/{postId}/like", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("POST_NOT_FOUND"));
+    mockMvc
+        .perform(
+            put("/api/v1/posts/not-a-uuid/like")
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+
+    var postId =
+        createdId(
+            create(firstToken, "Cascade likes").andReturn().getResponse().getContentAsString());
+    mockMvc
+        .perform(
+            put("/api/v1/posts/{postId}/like", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(secondToken)))
+        .andExpect(status().isOk());
+    assertThat(likeRepository.countByPostId(postId)).isOne();
+    postRepository.deleteById(postId);
+    postRepository.flush();
+    assertThat(likeRepository.countByPostId(postId)).isZero();
+
+    var secondPostId =
+        createdId(
+            create(firstToken, "User cascade").andReturn().getResponse().getContentAsString());
+    mockMvc
+        .perform(
+            put("/api/v1/posts/{postId}/like", secondPostId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(secondToken)))
+        .andExpect(status().isOk());
+    var secondUser =
+        userRepository
+            .findByEmailOrUsername("second@example.com", "second@example.com")
+            .orElseThrow();
+    userRepository.delete(secondUser);
+    userRepository.flush();
+    assertThat(likeRepository.countByPostId(secondPostId)).isZero();
   }
 
   private org.springframework.test.web.servlet.ResultActions create(String token, String content)

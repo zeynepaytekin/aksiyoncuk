@@ -12,4 +12,6 @@ public record PostRow(
     String username,
     String fullName,
     String professionalTitle,
-    long commentCount) {}
+    long commentCount,
+    long likeCount,
+    boolean likedByCurrentUser) {}

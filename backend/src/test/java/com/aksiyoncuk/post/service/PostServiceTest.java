@@ -90,7 +90,7 @@ class PostServiceTest {
   @Test
   void mapsOwnershipForCurrentUserAndAnonymousFeed() {
     var row = row(userId);
-    when(postRepository.findFeed(any())).thenReturn(new PageImpl<>(List.of(row)));
+    when(postRepository.findFeed(any(), any())).thenReturn(new PageImpl<>(List.of(row)));
 
     assertThat(
             service
@@ -100,6 +100,15 @@ class PostServiceTest {
                 .ownedByCurrentUser())
         .isTrue();
     assertThat(service.globalFeed(0, 20, null).content().getFirst().ownedByCurrentUser()).isFalse();
+    assertThat(
+            service
+                .globalFeed(0, 20, new AuthenticatedUser(userId))
+                .content()
+                .getFirst()
+                .likedByCurrentUser())
+        .isTrue();
+    assertThat(service.globalFeed(0, 20, null).content().getFirst().likedByCurrentUser()).isFalse();
+    assertThat(service.globalFeed(0, 20, null).content().getFirst().likeCount()).isEqualTo(4);
   }
 
   @Test
@@ -122,7 +131,7 @@ class PostServiceTest {
 
   @Test
   void missingPostThrowsExplicitException() {
-    when(postRepository.findProjectedById(any())).thenReturn(Optional.empty());
+    when(postRepository.findProjectedById(any(), any())).thenReturn(Optional.empty());
     assertThatThrownBy(() -> service.find(UUID.randomUUID(), null))
         .isInstanceOf(PostNotFoundException.class);
   }
@@ -146,6 +155,8 @@ class PostServiceTest {
         "creativeuser",
         "Creative User",
         "Director",
-        3);
+        3,
+        4,
+        true);
   }
 }
