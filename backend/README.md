@@ -94,6 +94,188 @@ OpenAPI documentation is available in development at:
 http://localhost:8080/swagger-ui.html
 ```
 
+## User registration
+
+Registration creates an active user and an empty profile in one database
+transaction:
+
+```text
+POST /api/v1/auth/register
+```
+
+Validation rules:
+
+- Email is required, must be valid, and may contain at most 254 characters.
+- Username is required, contains 3–30 letters, numbers, periods, or underscores,
+  and is stored lowercase.
+- Password is required and contains 12–72 characters.
+- Full name is required and may contain at most 100 characters.
+- Unknown JSON fields and malformed request bodies are rejected.
+
+Email and username are trimmed and normalized to lowercase. Full name is
+trimmed without changing its case. Passwords are stored only as BCrypt hashes.
+
+Example request:
+
+```json
+{
+  "email": "user@example.com",
+  "username": "creativeuser",
+  "password": "ExamplePassword123!",
+  "fullName": "Creative User"
+}
+```
+
+Example safe response (`201 Created`):
+
+```json
+{
+  "id": "79ff9da2-80ce-4421-9a0e-af71310c782e",
+  "email": "user@example.com",
+  "username": "creativeuser",
+  "fullName": "Creative User",
+  "status": "ACTIVE",
+  "createdAt": "2026-01-01T12:00:00Z",
+  "profile": {
+    "professionalTitle": null,
+    "bio": null,
+    "location": null,
+    "websiteUrl": null
+  }
+}
+```
+
+Invalid input returns `400 Bad Request` with code `VALIDATION_FAILED`, or
+`MALFORMED_REQUEST` for unreadable JSON and unknown fields. Existing normalized
+email or username values return `409 Conflict` with `EMAIL_ALREADY_EXISTS` or
+`USERNAME_ALREADY_EXISTS`.
+
+Register with curl:
+
+```bash
+curl -i -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","username":"creativeuser","password":"ExamplePassword123!","fullName":"Creative User"}'
+```
+
+Register with PowerShell:
+
+```powershell
+$body = @{
+  email = 'user@example.com'
+  username = 'creativeuser'
+  password = 'ExamplePassword123!'
+  fullName = 'Creative User'
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:8080/api/v1/auth/register `
+  -ContentType application/json `
+  -Body $body
+```
+
+Inspect local users and profiles:
+
+```powershell
+docker compose exec postgres psql -U aksiyoncuk -d aksiyoncuk -c `
+  'SELECT id, email, username, full_name, status, created_at FROM users;'
+docker compose exec postgres psql -U aksiyoncuk -d aksiyoncuk -c `
+  'SELECT id, user_id, professional_title, created_at FROM profiles;'
+```
+
+Registration does not create a session or issue any token. Clients log in
+separately after registration.
+
+## Login and JWT sessions
+
+JWT authentication requires these environment variables:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `JWT_ACCESS_SECRET` | HS256 signing secret containing at least 32 random bytes | Required |
+| `JWT_ACCESS_EXPIRATION_SECONDS` | Access-token lifetime | `900` |
+| `JWT_REFRESH_EXPIRATION_SECONDS` | Refresh-token lifetime | `2592000` |
+
+Generate a unique local secret with a cryptographically secure password
+generator and keep it only in the ignored `.env` file. Never reuse the example
+value or a development secret in production.
+
+Access tokens are signed HS256 JWTs with a 15-minute default lifetime. They are
+not stored in the database. Refresh tokens are opaque 256-bit random values
+with a 30-day default lifetime; only their SHA-256 hashes are stored.
+
+Login with email or username:
+
+```text
+POST /api/v1/auth/login
+```
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"user@example.com","password":"ExamplePassword123!"}'
+```
+
+```powershell
+$login = Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/auth/login `
+  -ContentType application/json `
+  -Body (@{
+    identifier = 'user@example.com'
+    password = 'ExamplePassword123!'
+  } | ConvertTo-Json)
+```
+
+Get the authenticated user:
+
+```bash
+curl http://localhost:8080/api/v1/auth/me \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+```
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:8080/api/v1/auth/me `
+  -Headers @{ Authorization = "Bearer $($login.accessToken)" }
+```
+
+Rotate the refresh token:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"REFRESH_TOKEN"}'
+```
+
+```powershell
+$refreshed = Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/auth/refresh `
+  -ContentType application/json `
+  -Body (@{ refreshToken = $login.refreshToken } | ConvertTo-Json)
+```
+
+Log out:
+
+```bash
+curl -i -X POST http://localhost:8080/api/v1/auth/logout \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"REFRESH_TOKEN"}'
+```
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/auth/logout `
+  -ContentType application/json `
+  -Body (@{ refreshToken = $refreshed.refreshToken } | ConvertTo-Json)
+```
+
+Every successful refresh revokes the submitted token and creates a replacement.
+Reusing a rotated token revokes all remaining active refresh tokens for that
+user. Logout is idempotent and does not reveal whether a token existed.
+
+The frontend still uses its mock adapter. It is not connected to these
+authentication endpoints yet.
+
 Production uses the same required database environment variables with the `prod` profile. API documentation is disabled in that profile:
 
 ```bash

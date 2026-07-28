@@ -1,7 +1,9 @@
 package com.aksiyoncuk.common.exception;
 
+import com.aksiyoncuk.auth.exception.AuthException;
 import com.aksiyoncuk.common.response.ApiErrorResponse;
 import com.aksiyoncuk.common.response.FieldValidationError;
+import com.aksiyoncuk.user.exception.RegistrationConflictException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
@@ -85,6 +87,20 @@ public class GlobalExceptionHandler {
         "The requested resource was not found",
         request,
         List.of());
+  }
+
+  @ExceptionHandler(RegistrationConflictException.class)
+  ResponseEntity<ApiErrorResponse> handleRegistrationConflict(
+      RegistrationConflictException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.CONFLICT, exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(AuthException.class)
+  ResponseEntity<ApiErrorResponse> handleAuthException(
+      AuthException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.UNAUTHORIZED, exception.getCode(), exception.getMessage(), request, List.of());
   }
 
   @ExceptionHandler(Exception.class)

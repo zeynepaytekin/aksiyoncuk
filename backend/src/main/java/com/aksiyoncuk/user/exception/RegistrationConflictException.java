@@ -1,0 +1,15 @@
+package com.aksiyoncuk.user.exception;
+
+public abstract class RegistrationConflictException extends RuntimeException {
+
+  private final String code;
+
+  protected RegistrationConflictException(String code, String message) {
+    super(message);
+    this.code = code;
+  }
+
+  public String getCode() {
+    return code;
+  }
+}

@@ -6,6 +6,8 @@ spring:
   profiles:
     default: dev
   jackson:
+    deserialization:
+      fail-on-unknown-properties: true
     serialization:
       write-dates-as-timestamps: false
   jpa:
@@ -32,6 +34,10 @@ app:
   cors:
     allowed-origins:
       - http://localhost:3000
+  jwt:
+    access-secret: ${JWT_ACCESS_SECRET}
+    access-expiration-seconds: ${JWT_ACCESS_EXPIRATION_SECONDS:900}
+    refresh-expiration-seconds: ${JWT_REFRESH_EXPIRATION_SECONDS:2592000}
 
 management:
   endpoints:
