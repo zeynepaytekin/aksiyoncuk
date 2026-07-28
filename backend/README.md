@@ -1083,8 +1083,91 @@ Invoke-RestMethod `
   -Uri "http://localhost:8080/api/v1/search/jobs?q=editor&category=PROFESSIONAL&workMode=REMOTE"
 ```
 
-The current implementation is bounded substring search. No V13 index migration is added:
+The current implementation is bounded substring search. No search-index migration was added:
 ordinary B-tree indexes do not accelerate leading-wildcard matches, while enabling `pg_trgm`
 and building several GIN indexes would add migration and write costs that are premature for the
 current dataset. At larger scale, measure representative queries first, then introduce a focused
 `pg_trgm` index set, PostgreSQL full-text search, or a dedicated search engine.
+
+## Direct messaging API
+
+All messaging endpoints require a bearer access token.
+
+| Method | Endpoint | Behavior |
+| --- | --- | --- |
+| `POST` | `/api/v1/conversations` | Start or reuse a direct conversation by username |
+| `GET` | `/api/v1/conversations` | List the current user's conversations |
+| `GET` | `/api/v1/conversations/{conversationId}` | Get one participant conversation |
+| `POST` | `/api/v1/conversations/{conversationId}/messages` | Send a text message |
+| `GET` | `/api/v1/conversations/{conversationId}/messages` | List messages newest first |
+| `POST` | `/api/v1/conversations/{conversationId}/read` | Mark the current participant read |
+| `GET` | `/api/v1/messaging/summary` | Return unread conversation/message totals |
+
+Starting a conversation is order-independent. The same two users always resolve to one
+deterministic direct conversation; the first request returns `201 Created` and subsequent requests
+return `200 OK`. Self-conversations are rejected.
+
+```json
+{
+  "username": "creativeuser"
+}
+```
+
+Messages are trimmed, must not be blank, and may contain at most 5000 characters:
+
+```json
+{
+  "content": "Hello"
+}
+```
+
+Conversation pages default to 20 items with a maximum of 50. Message pages default to 30 with a
+maximum of 100 and are ordered by `createdAt DESC, id DESC`; clients can reverse the current page
+for chronological display.
+
+Unread state uses one `lastReadAt` timestamp per conversation participant. An incoming message is
+unread when it is strictly newer than that timestamp. The current user's own messages never count
+as unread. Marking read changes only the requesting participant and uses a UTC application
+timestamp.
+
+curl:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/conversations \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"username":"creativeuser"}'
+curl http://localhost:8080/api/v1/conversations \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+curl -X POST http://localhost:8080/api/v1/conversations/$CONVERSATION_ID/messages \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"content":"Hello"}'
+curl "http://localhost:8080/api/v1/conversations/$CONVERSATION_ID/messages?page=0&size=30" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+curl -X POST http://localhost:8080/api/v1/conversations/$CONVERSATION_ID/read \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+curl http://localhost:8080/api/v1/messaging/summary \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+PowerShell:
+
+```powershell
+$headers = @{ Authorization = "Bearer $accessToken" }
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/conversations" `
+  -Headers $headers -ContentType "application/json" `
+  -Body (@{ username = "creativeuser" } | ConvertTo-Json)
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/conversations" -Headers $headers
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages" `
+  -Headers $headers -ContentType "application/json" `
+  -Body (@{ content = "Hello" } | ConvertTo-Json)
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/read" -Headers $headers
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/messaging/summary" -Headers $headers
+```
+
+Only participants can access or send to a conversation. Responses expose public usernames,
+names, and professional titles only. Deleted senders remain represented safely as `sender: null`.
+Group chat, attachments, editing, deletion, encryption, WebSockets, typing/online state, and
+push notifications are not implemented. Messaging unread totals are independent of the polling
+notification table.

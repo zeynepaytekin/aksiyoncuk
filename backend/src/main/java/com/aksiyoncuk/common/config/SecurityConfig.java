@@ -62,6 +62,11 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/search", "/api/v1/search/**")
                     .permitAll()
+                    .requestMatchers(
+                        "/api/v1/conversations",
+                        "/api/v1/conversations/**",
+                        "/api/v1/messaging/summary")
+                    .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/v1/profiles/me")
                     .authenticated()
                     .requestMatchers(HttpMethod.PATCH, "/api/v1/profiles/me")

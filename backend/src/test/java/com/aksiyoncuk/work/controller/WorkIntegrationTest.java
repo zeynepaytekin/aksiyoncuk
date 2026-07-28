@@ -251,7 +251,7 @@ class WorkIntegrationTest {
             jdbcTemplate.queryForObject(
                 "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1",
                 String.class))
-        .isEqualTo("12");
+        .isEqualTo("13");
   }
 
   private org.springframework.test.web.servlet.ResultActions create(

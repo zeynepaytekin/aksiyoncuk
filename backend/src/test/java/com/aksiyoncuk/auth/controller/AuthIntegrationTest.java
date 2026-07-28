@@ -173,8 +173,8 @@ class AuthIntegrationTest {
             "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1",
             String.class);
 
-    assertThat(count).isEqualTo(12);
-    assertThat(version).isEqualTo("12");
+    assertThat(count).isEqualTo(13);
+    assertThat(version).isEqualTo("13");
   }
 
   private void register() throws Exception {

@@ -5,6 +5,7 @@ import com.aksiyoncuk.common.response.ApiErrorResponse;
 import com.aksiyoncuk.common.response.FieldValidationError;
 import com.aksiyoncuk.job.application.exception.JobApplicationException;
 import com.aksiyoncuk.job.exception.JobException;
+import com.aksiyoncuk.messaging.exception.MessagingException;
 import com.aksiyoncuk.network.exception.NetworkException;
 import com.aksiyoncuk.notification.exception.NotificationException;
 import com.aksiyoncuk.post.comment.exception.CommentException;
@@ -165,6 +166,13 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(NotificationException.class)
   ResponseEntity<ApiErrorResponse> handleNotificationException(
       NotificationException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(MessagingException.class)
+  ResponseEntity<ApiErrorResponse> handleMessagingException(
+      MessagingException exception, HttpServletRequest request) {
     return error(
         exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
   }
