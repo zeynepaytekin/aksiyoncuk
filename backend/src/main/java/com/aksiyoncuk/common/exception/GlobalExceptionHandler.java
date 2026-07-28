@@ -3,6 +3,7 @@ package com.aksiyoncuk.common.exception;
 import com.aksiyoncuk.auth.exception.AuthException;
 import com.aksiyoncuk.common.response.ApiErrorResponse;
 import com.aksiyoncuk.common.response.FieldValidationError;
+import com.aksiyoncuk.job.exception.JobException;
 import com.aksiyoncuk.post.comment.exception.CommentException;
 import com.aksiyoncuk.post.exception.PostException;
 import com.aksiyoncuk.profile.exception.ProfileException;
@@ -132,6 +133,13 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(WorkException.class)
   ResponseEntity<ApiErrorResponse> handleWorkException(
       WorkException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(JobException.class)
+  ResponseEntity<ApiErrorResponse> handleJobException(
+      JobException exception, HttpServletRequest request) {
     return error(
         exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
   }

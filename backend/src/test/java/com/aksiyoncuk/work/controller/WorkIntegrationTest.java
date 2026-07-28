@@ -239,7 +239,7 @@ class WorkIntegrationTest {
   }
 
   @Test
-  void userDeletionCascadesWorksAndFlywayReachesV8() throws Exception {
+  void userDeletionCascadesWorksAndFlywayReachesV9() throws Exception {
     create(firstToken, "Cascade", "OTHER", null, null);
     var user = userRepository.findByUsername("firstuser").orElseThrow();
     assertThat(workRepository.countByOwnerId(user.getId())).isOne();
@@ -250,7 +250,7 @@ class WorkIntegrationTest {
     assertThat(
             jdbcTemplate.queryForObject(
                 "SELECT max(version) FROM flyway_schema_history WHERE success", String.class))
-        .isEqualTo("8");
+        .isEqualTo("9");
   }
 
   private org.springframework.test.web.servlet.ResultActions create(

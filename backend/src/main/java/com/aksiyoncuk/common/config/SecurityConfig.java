@@ -98,6 +98,23 @@ public class SecurityConfig {
                     .authenticated()
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/works/{workId}")
                     .authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/jobs/me")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/jobs")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/jobs/{jobId}")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/jobs")
+                    .authenticated()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/jobs/{jobId}/close",
+                        "/api/v1/jobs/{jobId}/reopen")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.PATCH, "/api/v1/jobs/{jobId}")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/jobs/{jobId}")
+                    .authenticated()
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

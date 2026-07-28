@@ -644,6 +644,94 @@ update or delete their works. Media uploads, thumbnails, videos, external file
 storage, tags, collaborators, likes, comments, awards, and drafts are not
 implemented.
 
+## Jobs / Project Board API
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| `POST` | `/api/v1/jobs` | Bearer token | Create an `OPEN` listing |
+| `GET` | `/api/v1/jobs` | Public | Browse listings and filters |
+| `GET` | `/api/v1/jobs/me` | Bearer token | List the current user's listings |
+| `GET` | `/api/v1/jobs/{jobId}` | Public | Read one listing |
+| `PATCH` | `/api/v1/jobs/{jobId}` | Owner | Partially update a listing |
+| `POST` | `/api/v1/jobs/{jobId}/close` | Owner | Idempotently close a listing |
+| `POST` | `/api/v1/jobs/{jobId}/reopen` | Owner | Idempotently reopen a listing |
+| `DELETE` | `/api/v1/jobs/{jobId}` | Owner | Delete a listing |
+
+Supported values:
+
+- `category`: `VOLUNTEER`, `STUDENT`, `AMATEUR`, `PROFESSIONAL`
+- `workMode`: `ONSITE`, `REMOTE`, `HYBRID`
+- `compensationType`: `UNPAID`, `FIXED`, `NEGOTIABLE`
+- `status`: `OPEN`, `CLOSED`
+
+`FIXED` requires a positive amount and three-letter currency. `UNPAID` requires
+both fields to be null. `NEGOTIABLE` permits a null amount and optional
+currency; a supplied amount must be positive. Currency is normalized to
+uppercase. Application deadlines must be future UTC instants.
+
+Create and browse:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/jobs \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Looking for editor","description":"Project description","category":"PROFESSIONAL","workMode":"REMOTE","location":"Istanbul","compensationType":"FIXED","compensationAmount":25000.00,"currency":"TRY","applicationDeadline":"2026-12-31T20:00:00Z"}'
+
+curl "http://localhost:8080/api/v1/jobs?page=0&size=20&status=OPEN&category=PROFESSIONAL&workMode=REMOTE"
+curl -H "Authorization: Bearer ACCESS_TOKEN" \
+  "http://localhost:8080/api/v1/jobs/me?status=CLOSED"
+```
+
+PATCH distinguishes omission from explicit null. Omitted fields remain
+unchanged; nullable `location`, `compensationAmount`, `currency`, and
+`applicationDeadline` may be cleared with null. The merged compensation state
+is always revalidated.
+
+```bash
+curl -X PATCH http://localhost:8080/api/v1/jobs/JOB_ID \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"location":null,"compensationType":"NEGOTIABLE","compensationAmount":null}'
+curl -X POST http://localhost:8080/api/v1/jobs/JOB_ID/close \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+curl -X POST http://localhost:8080/api/v1/jobs/JOB_ID/reopen \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+curl -X DELETE http://localhost:8080/api/v1/jobs/JOB_ID \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+```
+
+PowerShell:
+
+```powershell
+$job = Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/jobs" `
+  -Headers $headers -ContentType application/json `
+  -Body (@{
+    title = 'Looking for editor'
+    description = 'Project description'
+    category = 'PROFESSIONAL'
+    workMode = 'REMOTE'
+    compensationType = 'FIXED'
+    compensationAmount = 25000
+    currency = 'TRY'
+  } | ConvertTo-Json)
+Invoke-RestMethod "http://localhost:8080/api/v1/jobs?page=0&size=20"
+Invoke-RestMethod -Method Patch `
+  -Uri "http://localhost:8080/api/v1/jobs/$($job.id)" `
+  -Headers $headers -ContentType application/json `
+  -Body (@{ location = $null } | ConvertTo-Json)
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/jobs/$($job.id)/close" -Headers $headers
+Invoke-RestMethod -Method Delete `
+  -Uri "http://localhost:8080/api/v1/jobs/$($job.id)" -Headers $headers
+```
+
+Global browsing defaults to `OPEN`, is ordered by `createdAt DESC, id DESC`,
+and supports pages from zero with sizes 1–50. Public responses never include
+email or credentials. Only owners can update, transition, or delete listings.
+Applications, applicants, saved jobs, payments, messaging, attachments, and
+notifications are not implemented yet.
+
 Production uses the same required database environment variables with the `prod` profile. API documentation is disabled in that profile:
 
 ```bash
@@ -693,7 +781,7 @@ com.aksiyoncuk
 ├── profile          Private/public profile API and persistence
 ├── post             Posts and post comments
 ├── work             Portfolio work API and persistence
-└── job              Job feature (future)
+└── job              Jobs / Project Board API and persistence
 ```
 
 Future feature packages should own their controllers, DTOs, services, repositories, entities, and mappers. Controllers must expose DTOs rather than JPA entities. Database changes must be introduced through versioned Flyway migrations.
