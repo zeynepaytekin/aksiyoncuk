@@ -355,6 +355,74 @@ Unknown usernames return `404` with `PROFILE_NOT_FOUND`. Invalid URLs return
 `400` with `INVALID_PROFILE_URL`; invalid field values return
 `INVALID_PROFILE_UPDATE`.
 
+## Posts
+
+| Method and path | Authentication | Purpose |
+| --- | --- | --- |
+| `POST /api/v1/posts` | Bearer token | Create a post |
+| `GET /api/v1/posts?page=0&size=20` | Public | Newest-first global feed |
+| `GET /api/v1/posts/me?page=0&size=20` | Bearer token | Current user's posts |
+| `GET /api/v1/posts/{postId}` | Public | Single post |
+| `DELETE /api/v1/posts/{postId}` | Bearer token, owner only | Delete a post |
+
+Post content is trimmed, required, and limited to 3,000 characters. Feed pages
+default to page `0` and size `20`; size must be between `1` and `50`. Responses
+include page metadata and safe author identity without email. Anonymous feed
+responses always report `ownedByCurrentUser: false`.
+
+Example:
+
+```json
+{
+  "id": "392951b8-871d-46af-8087-cefc679f3b1c",
+  "content": "My first post",
+  "createdAt": "2026-01-01T12:00:00Z",
+  "updatedAt": "2026-01-01T12:00:00Z",
+  "author": {
+    "id": "79ff9da2-80ce-4421-9a0e-af71310c782e",
+    "username": "creativeuser",
+    "fullName": "Creative User",
+    "professionalTitle": "Director"
+  },
+  "ownedByCurrentUser": true
+}
+```
+
+curl:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/posts \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"My first post"}'
+
+curl "http://localhost:8080/api/v1/posts?page=0&size=20"
+curl http://localhost:8080/api/v1/posts/POST_ID
+curl -X DELETE http://localhost:8080/api/v1/posts/POST_ID \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+```
+
+PowerShell:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($login.accessToken)" }
+$post = Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/posts `
+  -Headers $headers `
+  -ContentType application/json `
+  -Body (@{ content = 'My first post' } | ConvertTo-Json)
+
+Invoke-RestMethod 'http://localhost:8080/api/v1/posts?page=0&size=20'
+Invoke-RestMethod http://localhost:8080/api/v1/posts/me -Headers $headers
+Invoke-RestMethod -Method Delete `
+  -Uri "http://localhost:8080/api/v1/posts/$($post.id)" `
+  -Headers $headers
+```
+
+Missing posts return `POST_NOT_FOUND`; non-owner deletion returns
+`POST_DELETE_FORBIDDEN`. Media, likes, comments, reposts, editing, and
+moderation are not implemented yet.
+
 Production uses the same required database environment variables with the `prod` profile. API documentation is disabled in that profile:
 
 ```bash

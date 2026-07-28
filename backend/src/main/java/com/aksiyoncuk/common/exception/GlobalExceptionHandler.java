@@ -3,6 +3,7 @@ package com.aksiyoncuk.common.exception;
 import com.aksiyoncuk.auth.exception.AuthException;
 import com.aksiyoncuk.common.response.ApiErrorResponse;
 import com.aksiyoncuk.common.response.FieldValidationError;
+import com.aksiyoncuk.post.exception.PostException;
 import com.aksiyoncuk.profile.exception.ProfileException;
 import com.aksiyoncuk.user.exception.RegistrationConflictException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +19,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -109,6 +111,25 @@ public class GlobalExceptionHandler {
       ProfileException exception, HttpServletRequest request) {
     return error(
         exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(PostException.class)
+  ResponseEntity<ApiErrorResponse> handlePostException(
+      PostException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  ResponseEntity<ApiErrorResponse> handleTypeMismatch(
+      MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
+    var pagination = "page".equals(exception.getName()) || "size".equals(exception.getName());
+    return error(
+        HttpStatus.BAD_REQUEST,
+        pagination ? "INVALID_PAGINATION" : "MALFORMED_REQUEST",
+        pagination ? "Pagination value is invalid" : "Request parameter is malformed",
+        request,
+        List.of());
   }
 
   @ExceptionHandler(Exception.class)

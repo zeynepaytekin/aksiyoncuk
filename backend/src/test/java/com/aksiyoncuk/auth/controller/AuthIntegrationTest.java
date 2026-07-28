@@ -172,8 +172,8 @@ class AuthIntegrationTest {
         jdbcTemplate.queryForObject(
             "SELECT max(version) FROM flyway_schema_history WHERE success", String.class);
 
-    assertThat(count).isEqualTo(4);
-    assertThat(version).isEqualTo("4");
+    assertThat(count).isEqualTo(5);
+    assertThat(version).isEqualTo("5");
   }
 
   private void register() throws Exception {
