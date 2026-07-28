@@ -40,6 +40,8 @@ const post: Post = {
   },
   ownedByCurrentUser: false,
   commentCount: 1,
+  likeCount: 0,
+  likedByCurrentUser: false,
 };
 
 const metadata: CommentPageMetadata = {
@@ -75,8 +77,20 @@ vi.mock("@/store/posts.store", () => ({
     selector: (state: {
       deletePost: typeof deletePost;
       deleteStatusById: Record<string, string>;
+      toggleLike: () => Promise<void>;
+      clearLikeError: () => void;
+      likeStatusByPostId: Record<string, string>;
+      likeErrorByPostId: Record<string, unknown>;
     }) => unknown,
-  ) => selector({ deletePost, deleteStatusById: {} }),
+  ) =>
+    selector({
+      deletePost,
+      deleteStatusById: {},
+      toggleLike: vi.fn(),
+      clearLikeError: vi.fn(),
+      likeStatusByPostId: {},
+      likeErrorByPostId: {},
+    }),
 }));
 vi.mock("@/store/comments.store", () => ({
   useCommentsStore: (selector: (state: typeof commentsState) => unknown) =>

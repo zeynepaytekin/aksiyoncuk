@@ -2,6 +2,7 @@ import { apiRequest } from "@/services/api/apiClient";
 import type {
   CreatePostRequest,
   Post,
+  PostLikeResponse,
   PostPage,
   PostPaginationParams,
 } from "@/types/feed";
@@ -54,5 +55,25 @@ export const postsService = {
       method: "DELETE",
       authenticated: true,
     });
+  },
+
+  like(postId: string): Promise<PostLikeResponse> {
+    return apiRequest<PostLikeResponse>(
+      `/posts/${encodeURIComponent(postId)}/like`,
+      {
+        method: "PUT",
+        authenticated: true,
+      },
+    );
+  },
+
+  unlike(postId: string): Promise<PostLikeResponse> {
+    return apiRequest<PostLikeResponse>(
+      `/posts/${encodeURIComponent(postId)}/like`,
+      {
+        method: "DELETE",
+        authenticated: true,
+      },
+    );
   },
 };

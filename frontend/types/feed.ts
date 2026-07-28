@@ -13,6 +13,14 @@ export interface Post {
   author: PostAuthor;
   ownedByCurrentUser: boolean;
   commentCount: number;
+  likeCount: number;
+  likedByCurrentUser: boolean;
+}
+
+export interface PostLikeResponse {
+  postId: string;
+  likedByCurrentUser: boolean;
+  likeCount: number;
 }
 
 export interface PostPage {

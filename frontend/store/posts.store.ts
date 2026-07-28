@@ -9,6 +9,7 @@ import { postCommentCountCoordinator } from "@/services/posts/postCommentCountCo
 import { postsStateCoordinator } from "@/services/posts/postsStateCoordinator";
 import type {
   Post,
+  PostLikeResponse,
   PostPage,
   PostPageMetadata,
   PostPaginationParams,
@@ -29,10 +30,16 @@ type PostsState = {
   createError: ApiError | null;
   deleteStatusById: Record<string, PostsStatus>;
   deleteErrorById: Record<string, ApiError | null>;
+  likeStatusByPostId: Record<string, PostsStatus>;
+  likeErrorByPostId: Record<string, ApiError | null>;
   loadGlobalPosts: (params?: PostPaginationParams) => Promise<void>;
   loadMyPosts: (params?: PostPaginationParams) => Promise<void>;
   createPost: (content: string) => Promise<Post>;
   deletePost: (postId: string) => Promise<void>;
+  likePost: (postId: string) => Promise<void>;
+  unlikePost: (postId: string) => Promise<void>;
+  toggleLike: (postId: string) => Promise<void>;
+  clearLikeError: (postId: string) => void;
   clearPosts: () => void;
   clearErrors: () => void;
 };
@@ -45,6 +52,32 @@ const globalRequestTokens = new Map<string, symbol>();
 const myRequestTokens = new Map<string, symbol>();
 let globalRequestSequence = 0;
 let myRequestSequence = 0;
+let likeOperationGeneration = 0;
+
+type LikeSnapshot = Pick<Post, "likedByCurrentUser" | "likeCount">;
+
+function updateLike(
+  posts: Post[],
+  postId: string,
+  value: LikeSnapshot,
+): Post[] {
+  return posts.map((post) =>
+    post.id === postId
+      ? {
+          ...post,
+          likedByCurrentUser: value.likedByCurrentUser,
+          likeCount: Math.max(0, value.likeCount),
+        }
+      : post,
+  );
+}
+
+function findPost(state: PostsState, postId: string): Post | undefined {
+  return (
+    state.globalPosts.find(({ id }) => id === postId) ??
+    state.myPosts.find(({ id }) => id === postId)
+  );
+}
 
 function toApiError(error: unknown, fallback: string): ApiError {
   return error instanceof ApiError
@@ -109,6 +142,8 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
   createError: null,
   deleteStatusById: {},
   deleteErrorById: {},
+  likeStatusByPostId: {},
+  likeErrorByPostId: {},
 
   loadGlobalPosts(params) {
     const normalized = normalizedParams(params, get().globalPageMetadata);
@@ -234,6 +269,16 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
             ...state.deleteStatusById,
             [postId]: "loaded",
           },
+          likeStatusByPostId: Object.fromEntries(
+            Object.entries(state.likeStatusByPostId).filter(
+              ([id]) => id !== postId,
+            ),
+          ),
+          likeErrorByPostId: Object.fromEntries(
+            Object.entries(state.likeErrorByPostId).filter(
+              ([id]) => id !== postId,
+            ),
+          ),
         };
       });
     } catch (error) {
@@ -246,6 +291,26 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
     }
   },
 
+  async likePost(postId) {
+    await setLikeState(postId, true, set, get);
+  },
+
+  async unlikePost(postId) {
+    await setLikeState(postId, false, set, get);
+  },
+
+  async toggleLike(postId) {
+    const current = findPost(get(), postId);
+    if (!current || get().likeStatusByPostId[postId] === "loading") return;
+    await setLikeState(postId, !current.likedByCurrentUser, set, get);
+  },
+
+  clearLikeError(postId) {
+    set((state) => ({
+      likeErrorByPostId: { ...state.likeErrorByPostId, [postId]: null },
+    }));
+  },
+
   clearPosts() {
     globalRequestSequence += 1;
     myRequestSequence += 1;
@@ -253,6 +318,7 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
     myRequests.clear();
     globalRequestTokens.clear();
     myRequestTokens.clear();
+    likeOperationGeneration += 1;
     set({
       globalPosts: [],
       globalPageMetadata: null,
@@ -266,6 +332,8 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
       createError: null,
       deleteStatusById: {},
       deleteErrorById: {},
+      likeStatusByPostId: {},
+      likeErrorByPostId: {},
     });
   },
 
@@ -275,6 +343,7 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
       myError: null,
       createError: null,
       deleteErrorById: {},
+      likeErrorByPostId: {},
     });
   },
 }));
@@ -289,6 +358,7 @@ postsStateCoordinator.configure(() => {
 
   myRequestSequence += 1;
   globalRequestSequence += 1;
+  likeOperationGeneration += 1;
     globalRequests.clear();
     globalRequestTokens.clear();
   usePostsStore.setState({
@@ -299,6 +369,12 @@ postsStateCoordinator.configure(() => {
     createError: null,
     deleteStatusById: {},
     deleteErrorById: {},
+    likeStatusByPostId: {},
+    likeErrorByPostId: {},
+    globalPosts: state.globalPosts.map((post) => ({
+      ...post,
+      likedByCurrentUser: false,
+    })),
     globalStatus: shouldReloadGlobal ? "idle" : state.globalStatus,
   });
 
@@ -306,6 +382,88 @@ postsStateCoordinator.configure(() => {
     void state.loadGlobalPosts(params).catch(() => undefined);
   }
 });
+
+async function setLikeState(
+  postId: string,
+  liked: boolean,
+  set: (
+    partial:
+      | Partial<PostsState>
+      | ((state: PostsState) => Partial<PostsState>),
+  ) => void,
+  get: () => PostsState,
+): Promise<void> {
+  const state = get();
+  if (state.likeStatusByPostId[postId] === "loading") return;
+  const current = findPost(state, postId);
+  if (!current) return;
+
+  const operationGeneration = likeOperationGeneration;
+  const globalPrevious = state.globalPosts.find(({ id }) => id === postId);
+  const minePrevious = state.myPosts.find(({ id }) => id === postId);
+  const optimistic = {
+    likedByCurrentUser: liked,
+    likeCount: Math.max(
+      0,
+      current.likeCount +
+        (liked === current.likedByCurrentUser ? 0 : liked ? 1 : -1),
+    ),
+  };
+
+  set((latest) => ({
+    globalPosts: updateLike(latest.globalPosts, postId, optimistic),
+    myPosts: updateLike(latest.myPosts, postId, optimistic),
+    likeStatusByPostId: {
+      ...latest.likeStatusByPostId,
+      [postId]: "loading",
+    },
+    likeErrorByPostId: { ...latest.likeErrorByPostId, [postId]: null },
+  }));
+
+  try {
+    const response: PostLikeResponse = liked
+      ? await postsService.like(postId)
+      : await postsService.unlike(postId);
+    if (
+      operationGeneration !== likeOperationGeneration ||
+      !findPost(get(), postId)
+    ) {
+      return;
+    }
+    set((latest) => ({
+      globalPosts: updateLike(latest.globalPosts, postId, response),
+      myPosts: updateLike(latest.myPosts, postId, response),
+      likeStatusByPostId: {
+        ...latest.likeStatusByPostId,
+        [postId]: "loaded",
+      },
+    }));
+  } catch (error) {
+    const apiError = toApiError(error, "The like could not be updated.");
+    if (
+      operationGeneration === likeOperationGeneration &&
+      findPost(get(), postId)
+    ) {
+      set((latest) => ({
+        globalPosts: globalPrevious
+          ? updateLike(latest.globalPosts, postId, globalPrevious)
+          : latest.globalPosts,
+        myPosts: minePrevious
+          ? updateLike(latest.myPosts, postId, minePrevious)
+          : latest.myPosts,
+        likeStatusByPostId: {
+          ...latest.likeStatusByPostId,
+          [postId]: "error",
+        },
+        likeErrorByPostId: {
+          ...latest.likeErrorByPostId,
+          [postId]: apiError,
+        },
+      }));
+    }
+    throw apiError;
+  }
+}
 
 postCommentCountCoordinator.configure((postId, delta) => {
   const update = (posts: Post[]) =>

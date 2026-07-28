@@ -55,9 +55,43 @@ describe("postsService", () => {
     });
   });
 
+  it("maps an encoded post like request", async () => {
+    const response = {
+      postId: "post/id",
+      likedByCurrentUser: true,
+      likeCount: 1,
+    };
+    request.mockResolvedValueOnce(response);
+    await expect(postsService.like("post/id")).resolves.toEqual(response);
+    expect(request).toHaveBeenCalledWith("/posts/post%2Fid/like", {
+      method: "PUT",
+      authenticated: true,
+    });
+  });
+
+  it("maps an encoded post unlike request", async () => {
+    const response = {
+      postId: "post/id",
+      likedByCurrentUser: false,
+      likeCount: 0,
+    };
+    request.mockResolvedValueOnce(response);
+    await expect(postsService.unlike("post/id")).resolves.toEqual(response);
+    expect(request).toHaveBeenCalledWith("/posts/post%2Fid/like", {
+      method: "DELETE",
+      authenticated: true,
+    });
+  });
+
   it("preserves structured API errors", async () => {
     const error = new ApiError(400, "INVALID_PAGINATION", "Invalid page");
     request.mockRejectedValueOnce(error);
     await expect(postsService.getGlobal({ page: -1 })).rejects.toBe(error);
+  });
+
+  it("preserves structured like errors", async () => {
+    const error = new ApiError(404, "POST_NOT_FOUND", "Missing post");
+    request.mockRejectedValueOnce(error);
+    await expect(postsService.like("missing")).rejects.toBe(error);
   });
 });

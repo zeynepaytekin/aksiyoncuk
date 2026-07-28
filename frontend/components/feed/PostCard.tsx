@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import Link from "next/link";
 
 import PostComments from "@/components/feed/PostComments";
 import Button from "@/components/ui/Button";
@@ -9,6 +10,7 @@ import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
 import { getPostErrorMessage } from "@/services/api/postErrorMessage";
 import { useCommentsStore } from "@/store/comments.store";
+import { useAuthStore } from "@/store/auth.store";
 import { usePostsStore } from "@/store/posts.store";
 import type { Post } from "@/types/feed";
 import { formatUtcDate } from "@/utils/formatDate";
@@ -24,6 +26,15 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const commentsRegionId = useId();
   const deletePost = usePostsStore((state) => state.deletePost);
+  const user = useAuthStore((state) => state.user);
+  const toggleLike = usePostsStore((state) => state.toggleLike);
+  const clearLikeError = usePostsStore((state) => state.clearLikeError);
+  const likeStatus = usePostsStore(
+    (state) => state.likeStatusByPostId[post.id] ?? "idle",
+  );
+  const likeError = usePostsStore(
+    (state) => state.likeErrorByPostId[post.id] ?? null,
+  );
   const loadComments = useCommentsStore((state) => state.loadComments);
   const commentStatus = useCommentsStore(
     (state) => state.statusByPostId[post.id] ?? "idle",
@@ -48,6 +59,11 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
     if (opening && commentStatus === "idle") {
       void loadComments(post.id, { page: 0, size: 20 }).catch(() => undefined);
     }
+  }
+
+  function handleLike() {
+    clearLikeError(post.id);
+    void toggleLike(post.id).catch(() => undefined);
   }
 
   const body = (
@@ -83,9 +99,27 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
       </p>
 
       <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
-        <Button variant="ghost" size="sm" disabled>
-          Like · Coming soon
-        </Button>
+        {user ? (
+          <Button
+            variant={post.likedByCurrentUser ? "soft" : "ghost"}
+            size="sm"
+            aria-pressed={post.likedByCurrentUser}
+            aria-label={`${post.likedByCurrentUser ? "Unlike" : "Like"} post, ${post.likeCount} likes`}
+            disabled={likeStatus === "loading"}
+            onClick={handleLike}
+          >
+            {post.likedByCurrentUser ? "Liked" : "Like"} ({post.likeCount})
+          </Button>
+        ) : (
+          <Link
+            href="/login"
+            title="Sign in to like this post"
+            aria-label={`Sign in to like post, ${post.likeCount} likes`}
+            className="rounded-xl px-3 py-1 text-xs font-medium text-gray-500 hover:text-black"
+          >
+            Like ({post.likeCount})
+          </Link>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -99,6 +133,17 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
           Share · Coming soon
         </Button>
       </div>
+
+      {likeError && (
+        <div className="mt-2" role="status" aria-live="polite">
+          <FormError message={getPostErrorMessage(likeError)} />
+          {user && (
+            <Button variant="ghost" size="sm" onClick={handleLike}>
+              Try again
+            </Button>
+          )}
+        </div>
+      )}
 
       {commentsExpanded && (
         <PostComments postId={post.id} regionId={commentsRegionId} />

@@ -13,6 +13,8 @@ vi.mock("@/services/api/posts.service", () => ({
     getById: vi.fn(),
     create: vi.fn(),
     delete: vi.fn(),
+    like: vi.fn(),
+    unlike: vi.fn(),
   },
 }));
 
@@ -29,6 +31,8 @@ const post: Post = {
   },
   ownedByCurrentUser: true,
   commentCount: 0,
+  likeCount: 0,
+  likedByCurrentUser: false,
 };
 
 function page(content: Post[] = [post]): PostPage {
@@ -49,6 +53,8 @@ describe("posts store", () => {
     vi.mocked(postsService.getMine).mockReset();
     vi.mocked(postsService.create).mockReset();
     vi.mocked(postsService.delete).mockReset();
+    vi.mocked(postsService.like).mockReset();
+    vi.mocked(postsService.unlike).mockReset();
     usePostsStore.getState().clearPosts();
   });
 
@@ -170,5 +176,122 @@ describe("posts store", () => {
     );
     expect(usePostsStore.getState().myPosts).toEqual([]);
     expect(usePostsStore.getState().myStatus).toBe("idle");
+  });
+
+  it("optimistically likes both collections and settles from the backend", async () => {
+    usePostsStore.setState({ globalPosts: [post], myPosts: [post] });
+    let resolve!: (value: {
+      postId: string;
+      likedByCurrentUser: boolean;
+      likeCount: number;
+    }) => void;
+    vi.mocked(postsService.like).mockReturnValue(
+      new Promise((done) => {
+        resolve = done;
+      }),
+    );
+
+    const request = usePostsStore.getState().toggleLike(post.id);
+    expect(usePostsStore.getState().globalPosts[0]).toMatchObject({
+      likedByCurrentUser: true,
+      likeCount: 1,
+    });
+    expect(usePostsStore.getState().myPosts[0]).toMatchObject({
+      likedByCurrentUser: true,
+      likeCount: 1,
+    });
+
+    resolve({ postId: post.id, likedByCurrentUser: true, likeCount: 7 });
+    await request;
+    expect(usePostsStore.getState().globalPosts[0].likeCount).toBe(7);
+    expect(usePostsStore.getState().myPosts[0].likeCount).toBe(7);
+  });
+
+  it("optimistically unlikes without allowing a negative count", async () => {
+    const liked = { ...post, likedByCurrentUser: true, likeCount: 0 };
+    usePostsStore.setState({ globalPosts: [liked], myPosts: [liked] });
+    vi.mocked(postsService.unlike).mockResolvedValue({
+      postId: post.id,
+      likedByCurrentUser: false,
+      likeCount: 0,
+    });
+    await usePostsStore.getState().toggleLike(post.id);
+    expect(usePostsStore.getState().globalPosts[0].likeCount).toBe(0);
+    expect(usePostsStore.getState().globalPosts[0].likedByCurrentUser).toBe(
+      false,
+    );
+  });
+
+  it("rolls back the exact prior like values after failure", async () => {
+    const global = { ...post, likeCount: 4, likedByCurrentUser: false };
+    const mine = { ...post, likeCount: 3, likedByCurrentUser: false };
+    usePostsStore.setState({ globalPosts: [global], myPosts: [mine] });
+    vi.mocked(postsService.like).mockRejectedValue(
+      new ApiError(0, "NETWORK_ERROR", "Offline"),
+    );
+    await expect(
+      usePostsStore.getState().toggleLike(post.id),
+    ).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+    expect(usePostsStore.getState().globalPosts[0].likeCount).toBe(4);
+    expect(usePostsStore.getState().myPosts[0].likeCount).toBe(3);
+    expect(usePostsStore.getState().likeErrorByPostId[post.id]?.code).toBe(
+      "NETWORK_ERROR",
+    );
+  });
+
+  it("prevents duplicate pending like requests", async () => {
+    usePostsStore.setState({ globalPosts: [post] });
+    let resolve!: (value: {
+      postId: string;
+      likedByCurrentUser: boolean;
+      likeCount: number;
+    }) => void;
+    vi.mocked(postsService.like).mockReturnValue(
+      new Promise((done) => {
+        resolve = done;
+      }),
+    );
+    const first = usePostsStore.getState().toggleLike(post.id);
+    await usePostsStore.getState().toggleLike(post.id);
+    expect(postsService.like).toHaveBeenCalledTimes(1);
+    resolve({ postId: post.id, likedByCurrentUser: true, likeCount: 1 });
+    await first;
+  });
+
+  it("clears like state when a post is deleted", async () => {
+    usePostsStore.setState({
+      globalPosts: [post],
+      likeStatusByPostId: { [post.id]: "error" },
+      likeErrorByPostId: {
+        [post.id]: new ApiError(500, "FAILED", "Failed"),
+      },
+    });
+    vi.mocked(postsService.delete).mockResolvedValue();
+    await usePostsStore.getState().deletePost(post.id);
+    expect(usePostsStore.getState().likeStatusByPostId[post.id]).toBeUndefined();
+    expect(usePostsStore.getState().likeErrorByPostId[post.id]).toBeUndefined();
+  });
+
+  it("normalizes ownership and clears private like state on logout", async () => {
+    usePostsStore.setState({
+      globalStatus: "loaded",
+      globalPosts: [{ ...post, likedByCurrentUser: true, likeCount: 2 }],
+      likeStatusByPostId: { [post.id]: "loading" },
+      likeErrorByPostId: {
+        [post.id]: new ApiError(500, "FAILED", "Failed"),
+      },
+    });
+    vi.mocked(postsService.getGlobal).mockResolvedValue(
+      page([{ ...post, likedByCurrentUser: false, likeCount: 2 }]),
+    );
+    postsStateCoordinator.authenticationChanged(false);
+    expect(usePostsStore.getState().globalPosts[0].likedByCurrentUser).toBe(
+      false,
+    );
+    expect(usePostsStore.getState().likeStatusByPostId).toEqual({});
+    expect(usePostsStore.getState().likeErrorByPostId).toEqual({});
+    await vi.waitFor(() =>
+      expect(postsService.getGlobal).toHaveBeenCalledTimes(1),
+    );
   });
 });

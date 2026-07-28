@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import Feed from "@/components/feed/Feed";
 import PostCard from "@/components/feed/PostCard";
 import ProfilePostsSection from "@/components/feed/ProfilePostsSection";
+import { ApiError } from "@/services/api/apiClient";
 import type { AuthUser } from "@/types/auth";
 import type { Post, PostPageMetadata } from "@/types/feed";
 
@@ -11,6 +12,8 @@ const loadGlobalPosts = vi.fn();
 const loadMyPosts = vi.fn();
 const createPost = vi.fn();
 const deletePost = vi.fn();
+const toggleLike = vi.fn();
+const clearLikeError = vi.fn();
 
 const user: AuthUser = {
   id: "user-id",
@@ -33,6 +36,8 @@ const post: Post = {
   },
   ownedByCurrentUser: true,
   commentCount: 0,
+  likeCount: 3,
+  likedByCurrentUser: false,
 };
 
 const metadata: PostPageMetadata = {
@@ -57,10 +62,14 @@ const postsState = {
   createStatus: "idle",
   createError: null,
   deleteStatusById: {} as Record<string, string>,
+  likeStatusByPostId: {} as Record<string, string>,
+  likeErrorByPostId: {} as Record<string, unknown>,
   loadGlobalPosts,
   loadMyPosts,
   createPost,
   deletePost,
+  toggleLike,
+  clearLikeError,
 };
 
 vi.mock("@/store/auth.store", () => ({
@@ -82,6 +91,9 @@ describe("feed UI", () => {
     loadMyPosts.mockResolvedValue(undefined);
     createPost.mockReset();
     deletePost.mockReset();
+    toggleLike.mockReset();
+    toggleLike.mockResolvedValue(undefined);
+    clearLikeError.mockReset();
     postsState.globalPosts = [post];
     postsState.globalPageMetadata = metadata;
     postsState.globalStatus = "loaded";
@@ -93,6 +105,8 @@ describe("feed UI", () => {
     postsState.createStatus = "idle";
     postsState.createError = null;
     postsState.deleteStatusById = {};
+    postsState.likeStatusByPostId = {};
+    postsState.likeErrorByPostId = {};
   });
 
   it("renders the public feed without an authenticated composer", () => {
@@ -143,12 +157,55 @@ describe("feed UI", () => {
     expect(loadGlobalPosts).toHaveBeenCalled();
   });
 
-  it("renders real author data and disabled social placeholders", () => {
+  it("renders real author data and requires sign-in to like", () => {
     render(<Feed />);
     expect(screen.getByText("Creative User")).toBeInTheDocument();
     expect(screen.getByText("@creativeuser · Director")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Like/ })).toBeDisabled();
+    expect(
+      screen.getByRole("link", { name: "Sign in to like post, 3 likes" }),
+    ).toHaveAttribute("href", "/login");
     expect(screen.queryByText(/Likes:/)).toBeNull();
+  });
+
+  it("toggles likes for authenticated users with accessible state", () => {
+    authUser = user;
+    render(<PostCard post={post} />);
+    const button = screen.getByRole("button", {
+      name: "Like post, 3 likes",
+    });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    expect(toggleLike).toHaveBeenCalledWith(post.id);
+  });
+
+  it("renders the liked state and disables a pending request", () => {
+    authUser = user;
+    postsState.likeStatusByPostId = { [post.id]: "loading" };
+    render(
+      <PostCard
+        post={{ ...post, likedByCurrentUser: true, likeCount: 4 }}
+      />,
+    );
+    const button = screen.getByRole("button", {
+      name: "Unlike post, 4 likes",
+    });
+    expect(button).toHaveTextContent("Liked (4)");
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(button).toBeDisabled();
+  });
+
+  it("shows a retryable like error", () => {
+    authUser = user;
+    postsState.likeErrorByPostId = {
+      [post.id]: new ApiError(0, "NETWORK_ERROR", "Offline"),
+    };
+    render(<PostCard post={post} />);
+    expect(
+      screen.getByText("The server could not be reached. Please try again."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(toggleLike).toHaveBeenCalledWith(post.id);
   });
 
   it("shows delete only for owned posts and confirms deletion", async () => {

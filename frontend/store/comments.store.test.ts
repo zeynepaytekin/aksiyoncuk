@@ -39,6 +39,8 @@ const post: Post = {
   author: comment.author,
   ownedByCurrentUser: true,
   commentCount: 0,
+  likeCount: 0,
+  likedByCurrentUser: false,
 };
 
 function page(content: PostComment[] = [comment]): CommentPage {
