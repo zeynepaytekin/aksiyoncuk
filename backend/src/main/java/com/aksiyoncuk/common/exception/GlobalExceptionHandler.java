@@ -3,7 +3,9 @@ package com.aksiyoncuk.common.exception;
 import com.aksiyoncuk.auth.exception.AuthException;
 import com.aksiyoncuk.common.response.ApiErrorResponse;
 import com.aksiyoncuk.common.response.FieldValidationError;
+import com.aksiyoncuk.job.application.exception.JobApplicationException;
 import com.aksiyoncuk.job.exception.JobException;
+import com.aksiyoncuk.network.exception.NetworkException;
 import com.aksiyoncuk.post.comment.exception.CommentException;
 import com.aksiyoncuk.post.exception.PostException;
 import com.aksiyoncuk.profile.exception.ProfileException;
@@ -140,6 +142,20 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(JobException.class)
   ResponseEntity<ApiErrorResponse> handleJobException(
       JobException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(JobApplicationException.class)
+  ResponseEntity<ApiErrorResponse> handleJobApplicationException(
+      JobApplicationException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(NetworkException.class)
+  ResponseEntity<ApiErrorResponse> handleNetworkException(
+      NetworkException exception, HttpServletRequest request) {
     return error(
         exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
   }

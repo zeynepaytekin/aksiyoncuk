@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
+import com.aksiyoncuk.network.repository.UserFollowRepository;
 import com.aksiyoncuk.profile.dto.PatchField;
 import com.aksiyoncuk.profile.dto.UpdateProfileRequest;
 import com.aksiyoncuk.profile.entity.Profile;
@@ -26,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ProfileServiceTest {
 
   @Mock private ProfileRepository profileRepository;
+  @Mock private UserFollowRepository followRepository;
 
   private ProfileService service;
   private User user;
@@ -34,7 +36,7 @@ class ProfileServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new ProfileService(profileRepository);
+    service = new ProfileService(profileRepository, followRepository);
     user = new User("private@example.com", "creativeuser", "$2a$10$hash", "Creative User");
     profile = new Profile(user);
     authenticatedUserId = UUID.randomUUID();
@@ -57,7 +59,7 @@ class ProfileServiceTest {
   @Test
   void publicResponseDoesNotDefineAnEmailProperty() {
     when(profileRepository.findByUserUsername("creativeuser")).thenReturn(Optional.of(profile));
-    var response = service.publicProfile("CREATIVEUSER");
+    var response = service.publicProfile("CREATIVEUSER", null);
     assertThat(response.getClass().getRecordComponents())
         .extracting(component -> component.getName())
         .doesNotContain("email");
@@ -130,7 +132,7 @@ class ProfileServiceTest {
   @Test
   void throwsExplicitExceptionForUnknownUsername() {
     when(profileRepository.findByUserUsername("unknown")).thenReturn(Optional.empty());
-    assertThatThrownBy(() -> service.publicProfile("UNKNOWN"))
+    assertThatThrownBy(() -> service.publicProfile("UNKNOWN", null))
         .isInstanceOf(ProfileNotFoundException.class);
   }
 

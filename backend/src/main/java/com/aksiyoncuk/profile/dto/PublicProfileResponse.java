@@ -16,9 +16,13 @@ public record PublicProfileResponse(
     String location,
     String websiteUrl,
     Instant createdAt,
-    Instant updatedAt) {
+    Instant updatedAt,
+    long followerCount,
+    long followingCount,
+    boolean followedByCurrentUser) {
 
-  public static PublicProfileResponse from(Profile profile) {
+  public static PublicProfileResponse from(
+      Profile profile, long followerCount, long followingCount, boolean followedByCurrentUser) {
     var user = profile.getUser();
     return new PublicProfileResponse(
         profile.getId(),
@@ -31,6 +35,9 @@ public record PublicProfileResponse(
         profile.getLocation(),
         profile.getWebsiteUrl(),
         profile.getCreatedAt(),
-        profile.getUpdatedAt());
+        profile.getUpdatedAt(),
+        followerCount,
+        followingCount,
+        followedByCurrentUser);
   }
 }

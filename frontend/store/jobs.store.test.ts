@@ -13,7 +13,7 @@ const job: Job = { id:"job-id", title:"Editor", description:"Project", category:
   workMode:"REMOTE", location:null, compensationType:"FIXED", compensationAmount:25000,
   currency:"TRY", status:"OPEN", applicationDeadline:null, createdAt:"2030-01-01T00:00:00Z",
   updatedAt:"2030-01-01T00:00:00Z", owner:{id:"user",username:"creator",fullName:"Creator",
-    professionalTitle:"Director"}, ownedByCurrentUser:true };
+    professionalTitle:"Director"}, ownedByCurrentUser:true, applicationCount:0 };
 const page = (content: Job[]=[job]): JobPage => ({ content, page:0, size:20,
   totalElements:content.length,totalPages:content.length?1:0,first:true,last:true });
 

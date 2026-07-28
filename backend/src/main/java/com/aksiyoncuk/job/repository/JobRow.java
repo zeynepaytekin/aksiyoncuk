@@ -22,4 +22,5 @@ public record JobRow(
     UUID ownerId,
     String username,
     String fullName,
-    String professionalTitle) {}
+    String professionalTitle,
+    long applicationCount) {}

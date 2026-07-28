@@ -5,6 +5,7 @@ import { create } from "zustand";
 import { ApiError } from "@/services/api/apiClient";
 import { profileService } from "@/services/api/profile.service";
 import { profileStateCoordinator } from "@/services/profile/profileStateCoordinator";
+import { profileNetworkCoordinator } from "@/services/network/profileNetworkCoordinator";
 import { useAuthStore } from "@/store/auth.store";
 import type {
   CurrentProfile,
@@ -189,3 +190,71 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
 profileStateCoordinator.configure(() =>
   useProfileStore.getState().clearCurrentProfile(),
 );
+
+profileNetworkCoordinator.configure({
+  read(username) {
+    return useProfileStore.getState().publicProfiles[normalizeProfileUsername(username)] ?? null;
+  },
+  optimistic(username, followed, followerCount) {
+    const key = normalizeProfileUsername(username);
+    useProfileStore.setState((state) => {
+      const profile = state.publicProfiles[key];
+      return profile
+        ? {
+            publicProfiles: {
+              ...state.publicProfiles,
+              [key]: {
+                ...profile,
+                followedByCurrentUser: followed,
+                followerCount: Math.max(0, followerCount),
+              },
+            },
+          }
+        : {};
+    });
+  },
+  settle(response) {
+    const key = normalizeProfileUsername(response.username);
+    useProfileStore.setState((state) => {
+      const profile = state.publicProfiles[key];
+      return profile
+        ? {
+            publicProfiles: {
+              ...state.publicProfiles,
+              [key]: {
+                ...profile,
+                followedByCurrentUser: response.followedByCurrentUser,
+                followerCount: response.followerCount,
+                followingCount: response.followingCount,
+              },
+            },
+          }
+        : {};
+    });
+  },
+  restore(username, profile) {
+    if (!profile) return;
+    const key = normalizeProfileUsername(username);
+    useProfileStore.setState((state) => ({
+      publicProfiles: { ...state.publicProfiles, [key]: profile },
+    }));
+  },
+  normalizeViewerState() {
+    useProfileStore.setState((state) => ({
+      publicProfiles: Object.fromEntries(
+        Object.entries(state.publicProfiles).map(([key, profile]) => [
+          key,
+          { ...profile, followedByCurrentUser: false },
+        ]),
+      ),
+    }));
+  },
+  invalidatePublic() {
+    publicRequests.clear();
+    useProfileStore.setState({
+      publicProfiles: {},
+      publicProfileStatuses: {},
+      publicProfileErrors: {},
+    });
+  },
+});

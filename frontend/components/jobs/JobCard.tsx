@@ -43,10 +43,13 @@ export default function JobCard({ job, ownerControls = false }: { job: Job; owne
       <div><dt className="sr-only">Compensation</dt><dd>{formatJobCompensation(job)}</dd></div>
     </dl>
     {job.applicationDeadline && <p className="mt-2 text-xs text-gray-500">Apply by {formatUtcDate(job.applicationDeadline)}</p>}
+    <p className="mt-2 text-xs font-medium text-gray-500">Applications ({job.applicationCount})</p>
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
       <time dateTime={job.createdAt} className="text-xs text-gray-400">{formatUtcDate(job.createdAt)}</time>
       <div className="flex gap-2"><Link className="text-xs font-medium underline" href={`/jobs/view?id=${encodeURIComponent(job.id)}`}>View details</Link>
       {canManage && <><Link className="text-xs font-medium underline" href={`/jobs/edit?id=${encodeURIComponent(job.id)}`}>Edit</Link>
+        {job.applicationCount > 0 && <Link className="text-xs font-medium underline"
+          href={`/jobs/applicants?jobId=${encodeURIComponent(job.id)}`}>View Applicants</Link>}
         <Button size="sm" variant="secondary" disabled={pending}
           onClick={() => setAction(job.status === "OPEN" ? "close" : "reopen")}>
           {job.status === "OPEN" ? "Close" : "Reopen"}</Button>

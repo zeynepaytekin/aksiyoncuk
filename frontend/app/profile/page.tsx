@@ -11,6 +11,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import Skeleton from "@/components/ui/Skeleton";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useProfileStore } from "@/store/profile.store";
+import { useNetworkStore } from "@/store/network.store";
 
 export default function ProfilePage() {
   const { isLoading: isAuthLoading, user } = useRequireAuth();
@@ -18,12 +19,18 @@ export default function ProfilePage() {
   const status = useProfileStore((state) => state.currentProfileStatus);
   const error = useProfileStore((state) => state.currentProfileError);
   const loadProfile = useProfileStore((state) => state.loadCurrentProfile);
+  const summary = useNetworkStore((state) => state.summary);
+  const summaryStatus = useNetworkStore((state) => state.summaryStatus);
+  const loadSummary = useNetworkStore((state) => state.loadMySummary);
 
   useEffect(() => {
     if (!isAuthLoading && user && status === "idle") {
       void loadProfile();
     }
-  }, [isAuthLoading, loadProfile, status, user]);
+    if (!isAuthLoading && user && summaryStatus === "idle") {
+      void loadSummary().catch(() => undefined);
+    }
+  }, [isAuthLoading, loadProfile, loadSummary, status, summaryStatus, user]);
 
   return (
     <AppShell>
@@ -43,7 +50,7 @@ export default function ProfilePage() {
         )}
         {profile && (
           <>
-            <ProfileHeader profile={profile} isOwner />
+            <ProfileHeader profile={profile} isOwner mutualCount={summary?.mutualCount} />
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
               <ProfileSidebar profile={profile} />
               <ProfileContent />

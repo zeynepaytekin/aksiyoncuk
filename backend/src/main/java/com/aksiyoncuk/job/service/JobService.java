@@ -71,7 +71,8 @@ public class JobService {
             owner.getId(),
             owner.getUsername(),
             owner.getFullName(),
-            profile.getProfessionalTitle()),
+            profile.getProfessionalTitle(),
+            0L),
         owner.getId());
   }
 

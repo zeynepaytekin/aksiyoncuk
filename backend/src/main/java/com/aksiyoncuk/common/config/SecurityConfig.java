@@ -66,6 +66,17 @@ public class SecurityConfig {
                     .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/v1/profiles/{username}")
                     .permitAll()
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/users/{username}/follow")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/users/{username}/follow")
+                    .authenticated()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/users/{username}/followers",
+                        "/api/v1/users/{username}/following")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/network/me")
+                    .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/v1/posts/me")
                     .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/v1/posts/{postId}/comments")
@@ -99,6 +110,20 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/works/{workId}")
                     .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/v1/jobs/me")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/job-applications/me")
+                    .authenticated()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/job-applications/{applicationId}/withdraw",
+                        "/api/v1/job-applications/{applicationId}/accept",
+                        "/api/v1/job-applications/{applicationId}/reject")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/job-applications/{applicationId}")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/jobs/{jobId}/applications")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/jobs/{jobId}/applications")
                     .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/v1/jobs")
                     .permitAll()

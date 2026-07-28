@@ -1,6 +1,7 @@
 package com.aksiyoncuk.profile.service;
 
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
+import com.aksiyoncuk.network.repository.UserFollowRepository;
 import com.aksiyoncuk.profile.dto.CurrentProfileResponse;
 import com.aksiyoncuk.profile.dto.PatchField;
 import com.aksiyoncuk.profile.dto.PublicProfileResponse;
@@ -22,14 +23,18 @@ public class ProfileService {
   private static final Pattern USERNAME_PATTERN = Pattern.compile("[a-z0-9._-]{3,30}");
 
   private final ProfileRepository profileRepository;
+  private final UserFollowRepository followRepository;
 
-  public ProfileService(ProfileRepository profileRepository) {
+  public ProfileService(
+      ProfileRepository profileRepository, UserFollowRepository followRepository) {
     this.profileRepository = profileRepository;
+    this.followRepository = followRepository;
   }
 
   @Transactional(readOnly = true)
   public CurrentProfileResponse currentProfile(AuthenticatedUser principal) {
-    return CurrentProfileResponse.from(findByUserId(principal.userId()));
+    var profile = findByUserId(principal.userId());
+    return currentResponse(profile);
   }
 
   @Transactional
@@ -57,16 +62,22 @@ public class ProfileService {
     }
 
     profileRepository.flush();
-    return CurrentProfileResponse.from(profile);
+    return currentResponse(profile);
   }
 
   @Transactional(readOnly = true)
-  public PublicProfileResponse publicProfile(String username) {
+  public PublicProfileResponse publicProfile(String username, AuthenticatedUser principal) {
     var normalized = normalizeUsername(username);
-    return profileRepository
-        .findByUserUsername(normalized)
-        .map(PublicProfileResponse::from)
-        .orElseThrow(ProfileNotFoundException::new);
+    var profile =
+        profileRepository.findByUserUsername(normalized).orElseThrow(ProfileNotFoundException::new);
+    var userId = profile.getUser().getId();
+    return PublicProfileResponse.from(
+        profile,
+        followRepository.countByFollowedId(userId),
+        followRepository.countByFollowerId(userId),
+        principal != null
+            && !principal.userId().equals(userId)
+            && followRepository.existsByFollowerIdAndFollowedId(principal.userId(), userId));
   }
 
   public String normalizeUsername(String username) {
@@ -79,6 +90,14 @@ public class ProfileService {
 
   private com.aksiyoncuk.profile.entity.Profile findByUserId(java.util.UUID userId) {
     return profileRepository.findByUserId(userId).orElseThrow(ProfileNotFoundException::new);
+  }
+
+  private CurrentProfileResponse currentResponse(com.aksiyoncuk.profile.entity.Profile profile) {
+    var userId = profile.getUser().getId();
+    return CurrentProfileResponse.from(
+        profile,
+        followRepository.countByFollowedId(userId),
+        followRepository.countByFollowerId(userId));
   }
 
   private String requiredFullName(PatchField field) {

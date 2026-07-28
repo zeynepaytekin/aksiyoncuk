@@ -732,6 +732,74 @@ email or credentials. Only owners can update, transition, or delete listings.
 Applications, applicants, saved jobs, payments, messaging, attachments, and
 notifications are not implemented yet.
 
+## Job Applications API
+
+| Method | Endpoint | Actor | Purpose |
+|---|---|---|---|
+| `POST` | `/api/v1/jobs/{jobId}/applications` | Applicant | Apply to an open job |
+| `GET` | `/api/v1/job-applications/me` | Applicant | List own applications |
+| `GET` | `/api/v1/jobs/{jobId}/applications` | Job owner | List applications for an owned job |
+| `GET` | `/api/v1/job-applications/{applicationId}` | Applicant or owner | View one application |
+| `POST` | `/api/v1/job-applications/{applicationId}/withdraw` | Applicant | Withdraw a submitted application |
+| `POST` | `/api/v1/job-applications/{applicationId}/accept` | Job owner | Accept a submitted application |
+| `POST` | `/api/v1/job-applications/{applicationId}/reject` | Job owner | Reject a submitted application |
+
+Application statuses are `SUBMITTED`, `ACCEPTED`, `REJECTED`, and
+`WITHDRAWN`. Only `SUBMITTED` may transition. Accept, reject, and withdraw
+produce terminal states. Repeating the same terminal operation is idempotent;
+conflicting transitions return `INVALID_JOB_APPLICATION_TRANSITION`.
+
+Apply:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/jobs/JOB_ID/applications \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"coverLetter":"I would like to apply."}'
+```
+
+The cover letter is optional, trimmed, converted from blank to null, and
+limited to 5000 characters. Job owners cannot apply to their own listings, a
+job must be open, and the `(job, applicant)` pair is unique.
+
+List and transition:
+
+```bash
+curl -H "Authorization: Bearer ACCESS_TOKEN" \
+  "http://localhost:8080/api/v1/job-applications/me?page=0&size=20&status=SUBMITTED"
+curl -H "Authorization: Bearer OWNER_ACCESS_TOKEN" \
+  "http://localhost:8080/api/v1/jobs/JOB_ID/applications?page=0&size=20"
+curl -X POST -H "Authorization: Bearer ACCESS_TOKEN" \
+  http://localhost:8080/api/v1/job-applications/APPLICATION_ID/withdraw
+curl -X POST -H "Authorization: Bearer OWNER_ACCESS_TOKEN" \
+  http://localhost:8080/api/v1/job-applications/APPLICATION_ID/accept
+curl -X POST -H "Authorization: Bearer OWNER_ACCESS_TOKEN" \
+  http://localhost:8080/api/v1/job-applications/APPLICATION_ID/reject
+```
+
+PowerShell:
+
+```powershell
+$application = Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/jobs/$jobId/applications" `
+  -Headers $headers -ContentType application/json `
+  -Body (@{ coverLetter = 'I would like to apply.' } | ConvertTo-Json)
+Invoke-RestMethod `
+  "http://localhost:8080/api/v1/job-applications/me?page=0&size=20" `
+  -Headers $headers
+Invoke-RestMethod `
+  "http://localhost:8080/api/v1/jobs/$jobId/applications?status=SUBMITTED" `
+  -Headers $ownerHeaders
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/job-applications/$($application.id)/accept" `
+  -Headers $ownerHeaders
+```
+
+Application responses contain safe public applicant and job-owner identity
+only. Job responses expose `applicationCount` but never embed application
+arrays. Resumes, attachments, messaging, notifications, interviews, payments,
+contracts, and application deletion are not implemented.
+
 Production uses the same required database environment variables with the `prod` profile. API documentation is disabled in that profile:
 
 ```bash
@@ -795,3 +863,68 @@ GET /actuator/health
 ```
 
 Health details are not returned publicly. Other Actuator endpoints remain unexposed.
+## Follow and network API
+
+The network API models a direct, public follow relationship. Connection requests, private
+accounts, blocking, recommendations, messaging, and follow notifications are not implemented.
+
+| Method | Endpoint | Authentication | Behavior |
+| --- | --- | --- | --- |
+| `PUT` | `/api/v1/users/{username}/follow` | Required | Idempotently follow a user |
+| `DELETE` | `/api/v1/users/{username}/follow` | Required | Idempotently unfollow a user |
+| `GET` | `/api/v1/users/{username}/followers?page=0&size=20` | Public | Followers, newest first |
+| `GET` | `/api/v1/users/{username}/following?page=0&size=20` | Public | Followed users, newest first |
+| `GET` | `/api/v1/network/me` | Required | Current user's follower, following, and mutual counts |
+
+Usernames are trimmed and normalized with locale-independent lowercase rules. Following
+yourself is rejected with `SELF_FOLLOW_NOT_ALLOWED`. Repeated follow and unfollow calls are
+successful and return the authoritative count state. List pages use zero-based pagination;
+`size` must be between 1 and 50.
+
+Public and private profile responses now include:
+
+```json
+{
+  "followerCount": 42,
+  "followingCount": 18,
+  "followedByCurrentUser": false
+}
+```
+
+Anonymous viewers always receive `followedByCurrentUser: false`. Authenticated public-profile
+requests and network list items reflect whether the current viewer follows the represented user.
+Public responses do not expose email addresses, password hashes, or authentication data.
+
+Follow and inspect a network with curl:
+
+```bash
+curl -X PUT http://localhost:8080/api/v1/users/creativeuser/follow \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+curl "http://localhost:8080/api/v1/users/creativeuser/followers?page=0&size=20"
+curl "http://localhost:8080/api/v1/users/creativeuser/following?page=0&size=20"
+
+curl http://localhost:8080/api/v1/network/me \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+curl -X DELETE http://localhost:8080/api/v1/users/creativeuser/follow \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+PowerShell:
+
+```powershell
+$headers = @{ Authorization = "Bearer $accessToken" }
+Invoke-RestMethod -Method Put `
+  -Uri "http://localhost:8080/api/v1/users/creativeuser/follow" `
+  -Headers $headers
+
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/v1/users/creativeuser/followers?page=0&size=20"
+
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/network/me" -Headers $headers
+
+Invoke-RestMethod -Method Delete `
+  -Uri "http://localhost:8080/api/v1/users/creativeuser/follow" `
+  -Headers $headers
+```

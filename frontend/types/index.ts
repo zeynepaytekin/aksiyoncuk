@@ -27,7 +27,24 @@ export type {
   UpdateJobRequest,
   WorkMode,
 } from "./jobs";
+export type {
+  CreateJobApplicationRequest,
+  JobApplication,
+  JobApplicationApplicant,
+  JobApplicationJob,
+  JobApplicationOwner,
+  JobApplicationPage,
+  JobApplicationPaginationParams,
+  JobApplicationStatus,
+} from "./jobApplications";
 export type { ProfileContentData } from "./profile";
+export type {
+  FollowResponse,
+  NetworkPage,
+  NetworkPaginationParams,
+  NetworkSummary,
+  NetworkUser,
+} from "./network";
 export type {
   CreateWorkRequest,
   UpdateWorkRequest,

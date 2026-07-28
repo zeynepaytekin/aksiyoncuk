@@ -31,6 +31,7 @@ export type Job = {
   updatedAt: string;
   owner: JobOwner;
   ownedByCurrentUser: boolean;
+  applicationCount: number;
 };
 
 export type JobPage = {

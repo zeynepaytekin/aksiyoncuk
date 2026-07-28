@@ -82,7 +82,8 @@ public class ProfileController {
         responseCode = "404",
         content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
   })
-  PublicProfileResponse publicProfile(@PathVariable String username) {
-    return profileService.publicProfile(username);
+  PublicProfileResponse publicProfile(
+      @PathVariable String username, @AuthenticationPrincipal AuthenticatedUser principal) {
+    return profileService.publicProfile(username, principal);
   }
 }

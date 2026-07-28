@@ -11,6 +11,8 @@ import { commentsStateCoordinator } from "@/services/comments/commentsStateCoord
 import { postsStateCoordinator } from "@/services/posts/postsStateCoordinator";
 import { worksStateCoordinator } from "@/services/works/worksStateCoordinator";
 import { jobsStateCoordinator } from "@/services/jobs/jobsStateCoordinator";
+import { jobApplicationsStateCoordinator } from "@/services/jobApplications/jobApplicationsStateCoordinator";
+import { networkStateCoordinator } from "@/services/network/networkStateCoordinator";
 import type {
   AuthResponse,
   AuthUser,
@@ -122,6 +124,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       commentsStateCoordinator.authenticationChanged();
       worksStateCoordinator.authenticationChanged(true);
       jobsStateCoordinator.authenticationChanged(true);
+      networkStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -140,6 +143,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       commentsStateCoordinator.authenticationChanged();
       worksStateCoordinator.authenticationChanged(true);
       jobsStateCoordinator.authenticationChanged(true);
+      networkStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -164,6 +168,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         commentsStateCoordinator.authenticationChanged();
         worksStateCoordinator.authenticationChanged(true);
         jobsStateCoordinator.authenticationChanged(true);
+        networkStateCoordinator.authenticationChanged(true);
       }
     } catch (error) {
       get().clearSession();
@@ -190,6 +195,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     commentsStateCoordinator.authenticationChanged();
     worksStateCoordinator.authenticationChanged(false);
     jobsStateCoordinator.authenticationChanged(false);
+    jobApplicationsStateCoordinator.clearPrivate();
+    networkStateCoordinator.authenticationChanged(false);
     set(clearedState);
   },
 

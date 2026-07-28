@@ -21,7 +21,8 @@ public record JobResponse(
     Instant createdAt,
     Instant updatedAt,
     JobOwnerResponse owner,
-    boolean ownedByCurrentUser) {
+    boolean ownedByCurrentUser,
+    long applicationCount) {
   public static JobResponse from(JobRow row, UUID currentUserId) {
     return new JobResponse(
         row.id(),
@@ -39,6 +40,7 @@ public record JobResponse(
         row.updatedAt(),
         new JobOwnerResponse(
             row.ownerId(), row.username(), row.fullName(), row.professionalTitle()),
-        currentUserId != null && currentUserId.equals(row.ownerId()));
+        currentUserId != null && currentUserId.equals(row.ownerId()),
+        row.applicationCount());
   }
 }

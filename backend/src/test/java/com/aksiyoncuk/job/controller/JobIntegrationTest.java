@@ -194,8 +194,9 @@ class JobIntegrationTest {
     assertThat(jobs.countByOwnerId(user.getId())).isZero();
     assertThat(
             jdbc.queryForObject(
-                "SELECT max(version) FROM flyway_schema_history WHERE success", String.class))
-        .isEqualTo("9");
+                "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1",
+                String.class))
+        .isEqualTo("11");
   }
 
   private ResultActions create(

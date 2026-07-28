@@ -190,12 +190,12 @@ class PostIntegrationTest {
   }
 
   @Test
-  void flywayAppliedAllNineMigrations() {
+  void flywayAppliedAllTenMigrations() {
     var versions =
         jdbcTemplate.queryForList(
             "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank",
             String.class);
-    assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
+    assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
   }
 
   @Test

@@ -11,7 +11,8 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
       "SELECT new com.aksiyoncuk.job.repository.JobRow("
           + "j.id,j.title,j.description,j.category,j.workMode,j.location,j.compensationType,"
           + "j.compensationAmount,j.currency,j.status,j.applicationDeadline,j.createdAt,j.updatedAt,"
-          + "u.id,u.username,u.fullName,p.professionalTitle) FROM Job j JOIN j.owner u "
+          + "u.id,u.username,u.fullName,p.professionalTitle,"
+          + "(SELECT count(a) FROM JobApplication a WHERE a.job=j)) FROM Job j JOIN j.owner u "
           + "JOIN Profile p ON p.user = u ";
 
   @Query(

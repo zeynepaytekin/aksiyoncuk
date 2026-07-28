@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { ApiError } from "@/services/api/apiClient";
 import { jobsService } from "@/services/api/jobs.service";
 import { jobsStateCoordinator } from "@/services/jobs/jobsStateCoordinator";
+import { jobApplicationCountCoordinator } from "@/services/jobs/jobApplicationCountCoordinator";
 import type {
   CreateJobRequest, Job, JobFilters, JobPage, JobPageMetadata, JobPaginationParams, UpdateJobRequest,
 } from "@/types/jobs";
@@ -199,4 +200,19 @@ jobsStateCoordinator.configure((authenticated) => {
     globalStatus: loaded ? "idle" : current.globalStatus,
   }));
   if (loaded) void state.loadGlobalJobs().catch(() => undefined);
+});
+
+jobApplicationCountCoordinator.configure((jobId, delta) => {
+  useJobsStore.setState((state) => ({
+    globalJobs: state.globalJobs.map((job) =>
+      job.id === jobId
+        ? { ...job, applicationCount: Math.max(0, job.applicationCount + delta) }
+        : job,
+    ),
+    myJobs: state.myJobs.map((job) =>
+      job.id === jobId
+        ? { ...job, applicationCount: Math.max(0, job.applicationCount + delta) }
+        : job,
+    ),
+  }));
 });

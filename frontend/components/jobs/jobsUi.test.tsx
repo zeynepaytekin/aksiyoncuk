@@ -8,7 +8,7 @@ import type { Job } from "@/types/jobs";
 const job: Job = { id:"job",title:"Backend Job",description:"Real project",category:"PROFESSIONAL",
   workMode:"REMOTE",location:"Istanbul",compensationType:"FIXED",compensationAmount:25000,currency:"TRY",
   status:"OPEN",applicationDeadline:null,createdAt:"2030-01-01T00:00:00Z",updatedAt:"2030-01-01T00:00:00Z",
-  owner:{id:"user",username:"creator",fullName:"Creative User",professionalTitle:"Director"},ownedByCurrentUser:false };
+  owner:{id:"user",username:"creator",fullName:"Creative User",professionalTitle:"Director"},ownedByCurrentUser:false,applicationCount:0 };
 
 describe("jobs UI",()=>{
   it("validates fixed compensation and normalizes currency",async()=>{

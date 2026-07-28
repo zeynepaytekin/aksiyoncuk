@@ -1,13 +1,20 @@
+"use client";
+
 import Link from "next/link";
 
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import type { CurrentProfile, PublicProfile } from "@/types/profile";
+import FormError from "@/components/ui/FormError";
+import { getNetworkErrorMessage } from "@/services/api/networkErrorMessage";
+import { useAuthStore } from "@/store/auth.store";
+import { useNetworkStore } from "@/store/network.store";
 
 type ProfileHeaderProps = {
   profile: CurrentProfile | PublicProfile;
   isOwner: boolean;
+  mutualCount?: number | null;
 };
 
 function identity(profile: CurrentProfile | PublicProfile) {
@@ -19,8 +26,20 @@ function identity(profile: CurrentProfile | PublicProfile) {
 export default function ProfileHeader({
   isOwner,
   profile,
+  mutualCount = null,
 }: ProfileHeaderProps) {
   const user = identity(profile);
+  const authenticatedUser = useAuthStore((state) => state.user);
+  const toggle = useNetworkStore((state) => state.toggleFollow);
+  const followStatus = useNetworkStore(
+    (state) => state.followStatusByUsername[user.username.toLowerCase()] ?? "idle",
+  );
+  const followError = useNetworkStore(
+    (state) => state.followErrorByUsername[user.username.toLowerCase()],
+  );
+  const self = isOwner || authenticatedUser?.id === ("userId" in profile
+    ? profile.userId : profile.user.id);
+  const pending = followStatus === "loading";
 
   return (
     <Card padding="none" className="overflow-hidden">
@@ -41,54 +60,59 @@ export default function ProfileHeader({
           </div>
 
           <div className="flex gap-3">
-            {isOwner ? (
+            {self ? (
               <Link
                 href="/profile/edit"
                 className="rounded-full border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Edit Profile
               </Link>
-            ) : (
+            ) : authenticatedUser ? (
               <>
                 <Button
                   shape="pill"
                   size="none"
                   className="px-5 py-2 text-sm font-semibold"
-                  disabled
-                  title="Coming soon"
+                  disabled={pending}
+                  isLoading={pending}
+                  loadingText="Saving..."
+                  aria-pressed={profile.followedByCurrentUser}
+                  variant={profile.followedByCurrentUser ? "secondary" : "primary"}
+                  onClick={() => void toggle(user.username).catch(() => undefined)}
                 >
-                  Follow
-                </Button>
-                <Button
-                  variant="secondary"
-                  shape="pill"
-                  size="none"
-                  className="px-5 py-2 text-sm font-semibold"
-                  disabled
-                  title="Coming soon"
-                >
-                  Message
+                  {profile.followedByCurrentUser ? "Following" : "Follow"}
                 </Button>
               </>
+            ) : (
+              <Link href="/login" className="rounded-full border px-5 py-2 text-sm font-semibold">
+                Sign in to follow
+              </Link>
             )}
           </div>
         </div>
 
-        {/* Presentation fixtures until social metrics have backend support. */}
         <div className="mt-6 grid grid-cols-3 gap-4 border-t border-gray-100 pt-5 text-center">
-          <div>
-            <p className="text-xl font-bold">1,284</p>
+          <Link href={`/network/followers?username=${encodeURIComponent(user.username)}`}
+            aria-label={`${profile.followerCount} followers`}>
+            <p className="text-xl font-bold">{profile.followerCount}</p>
             <p className="text-sm text-gray-500">Followers</p>
-          </div>
-          <div>
-            <p className="text-xl font-bold">342</p>
+          </Link>
+          <Link href={`/network/following?username=${encodeURIComponent(user.username)}`}
+            aria-label={`${profile.followingCount} following`}>
+            <p className="text-xl font-bold">{profile.followingCount}</p>
+            <p className="text-sm text-gray-500">Following</p>
+          </Link>
+          {self ? <Link href="/network" aria-label={`${mutualCount ?? 0} mutual connections`}>
+            <p className="text-xl font-bold">{mutualCount ?? "—"}</p>
             <p className="text-sm text-gray-500">Mutuals</p>
-          </div>
-          <div>
-            <p className="text-xl font-bold">8,920</p>
-            <p className="text-sm text-gray-500">Profile Views</p>
-          </div>
+          </Link> : <div>
+            <p className="text-xl font-bold">—</p>
+            <p className="text-sm text-gray-500">Mutuals</p>
+          </div>}
         </div>
+        {followError && <div role="alert" aria-live="polite" className="mt-3">
+          <FormError message={getNetworkErrorMessage(followError)} />
+        </div>}
       </div>
     </Card>
   );

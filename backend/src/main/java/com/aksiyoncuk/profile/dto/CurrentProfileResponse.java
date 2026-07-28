@@ -12,9 +12,13 @@ public record CurrentProfileResponse(
     String location,
     String websiteUrl,
     Instant createdAt,
-    Instant updatedAt) {
+    Instant updatedAt,
+    long followerCount,
+    long followingCount,
+    boolean followedByCurrentUser) {
 
-  public static CurrentProfileResponse from(Profile profile) {
+  public static CurrentProfileResponse from(
+      Profile profile, long followerCount, long followingCount) {
     return new CurrentProfileResponse(
         profile.getId(),
         CurrentProfileUserResponse.from(profile.getUser()),
@@ -23,6 +27,9 @@ public record CurrentProfileResponse(
         profile.getLocation(),
         profile.getWebsiteUrl(),
         profile.getCreatedAt(),
-        profile.getUpdatedAt());
+        profile.getUpdatedAt(),
+        followerCount,
+        followingCount,
+        false);
   }
 }

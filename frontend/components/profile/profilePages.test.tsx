@@ -29,6 +29,9 @@ const current: CurrentProfile = {
   websiteUrl: "https://example.com",
   createdAt: "2030-01-01T00:00:00Z",
   updatedAt: "2030-01-01T00:00:00Z",
+  followerCount: 12,
+  followingCount: 5,
+  followedByCurrentUser: false,
 };
 
 const publicProfile: PublicProfile = {
@@ -43,6 +46,9 @@ const publicProfile: PublicProfile = {
   websiteUrl: null,
   createdAt: "2030-01-01T00:00:00Z",
   updatedAt: "2030-01-01T00:00:00Z",
+  followerCount: 9,
+  followingCount: 4,
+  followedByCurrentUser: false,
 };
 
 const profileState = {
@@ -186,9 +192,10 @@ describe("profile UI", () => {
     expect(screen.getByText("Profile not found")).toBeInTheDocument();
   });
 
-  it("public header exposes only disabled placeholder actions", () => {
+  it("public anonymous header offers sign in and real count links", () => {
     render(<ProfileHeader profile={publicProfile} isOwner={false} />);
-    expect(screen.getByRole("button", { name: "Follow" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Message" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Sign in to follow" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "9 followers" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "4 following" })).toBeInTheDocument();
   });
 });

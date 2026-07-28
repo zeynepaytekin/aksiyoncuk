@@ -170,10 +170,11 @@ class AuthIntegrationTest {
             "SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class);
     var version =
         jdbcTemplate.queryForObject(
-            "SELECT max(version) FROM flyway_schema_history WHERE success", String.class);
+            "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1",
+            String.class);
 
-    assertThat(count).isEqualTo(9);
-    assertThat(version).isEqualTo("9");
+    assertThat(count).isEqualTo(11);
+    assertThat(version).isEqualTo("11");
   }
 
   private void register() throws Exception {

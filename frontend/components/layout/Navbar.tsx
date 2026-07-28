@@ -41,7 +41,7 @@ export default function Navbar() {
           <Link href="/home" className="hover:text-black">
             Home
           </Link>
-          <Link href="#" className="hover:text-black">
+          <Link href="/network" className="hover:text-black">
             Network
           </Link>
           <Link href="/jobs" className="hover:text-black">
@@ -61,6 +61,9 @@ export default function Navbar() {
               <span className="hidden text-sm font-medium text-gray-700 md:inline">
                 {user.fullName || user.email}
               </span>
+              <Link href="/applications" className="text-sm font-medium text-gray-700 hover:text-black">
+                Applications
+              </Link>
               <Button
                 variant="secondary"
                 shape="pill"

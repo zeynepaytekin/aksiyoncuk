@@ -35,6 +35,9 @@ const current: CurrentProfile = {
   websiteUrl: "https://example.com",
   createdAt: "2030-01-01T00:00:00Z",
   updatedAt: "2030-01-01T00:00:00Z",
+  followerCount: 12,
+  followingCount: 5,
+  followedByCurrentUser: false,
 };
 
 const publicProfile: PublicProfile = {
@@ -49,6 +52,9 @@ const publicProfile: PublicProfile = {
   websiteUrl: null,
   createdAt: "2030-01-01T00:00:00Z",
   updatedAt: "2030-01-01T00:00:00Z",
+  followerCount: 9,
+  followingCount: 4,
+  followedByCurrentUser: false,
 };
 
 describe("profile store", () => {
