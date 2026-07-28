@@ -1,181 +1,138 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import PostCard from "@/components/feed/PostCard";
+import PostPagination from "@/components/feed/PostPagination";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Input from "@/components/ui/Input";
+import EmptyState from "@/components/ui/EmptyState";
+import FormError from "@/components/ui/FormError";
+import Skeleton from "@/components/ui/Skeleton";
 import TextArea from "@/components/ui/TextArea";
+import { getPostErrorMessage } from "@/services/api/postErrorMessage";
 import { useAuthStore } from "@/store/auth.store";
-import { useContentStore } from "@/store/content.store";
-import type { Comment, Post } from "@/types/feed";
+import { usePostsStore } from "@/store/posts.store";
 
 export default function Feed() {
   const user = useAuthStore((state) => state.user);
-  const posts = useContentStore((state) => state.posts);
-  const loadPosts = useContentStore((state) => state.loadPosts);
-  const addPost = useContentStore((state) => state.addPost);
-  const togglePostLike = useContentStore((state) => state.togglePostLike);
-  const addComment = useContentStore((state) => state.addComment);
-
+  const posts = usePostsStore((state) => state.globalPosts);
+  const pageMetadata = usePostsStore((state) => state.globalPageMetadata);
+  const status = usePostsStore((state) => state.globalStatus);
+  const error = usePostsStore((state) => state.globalError);
+  const createStatus = usePostsStore((state) => state.createStatus);
+  const createError = usePostsStore((state) => state.createError);
+  const loadPosts = usePostsStore((state) => state.loadGlobalPosts);
+  const createPost = usePostsStore((state) => state.createPost);
   const [newPost, setNewPost] = useState("");
-  const [commentInputs, setCommentInputs] = useState<Record<number, string>>(
-    {}
-  );
 
   useEffect(() => {
-    void loadPosts();
-  }, [loadPosts]);
+    if (status === "idle") {
+      void loadPosts().catch(() => undefined);
+    }
+  }, [loadPosts, status]);
 
-  function getAuthorName(): string {
-    return user?.fullName || user?.email || "User";
-  }
-
-  function handlePost() {
-    if (!newPost.trim()) return;
-
-    const newItem: Post = {
-      id: Date.now(),
-      author: getAuthorName(),
-      content: newPost,
-      createdAt: new Date().toLocaleString(),
-      likes: 0,
-      isLiked: false,
-      comments: [],
-      userEmail: user?.email || "",
-    };
-
-    void addPost(newItem);
-    setNewPost("");
-  }
-
-  function handleLike(postId: number) {
-    void togglePostLike(postId);
-  }
-
-  function handleCommentChange(postId: number, value: string) {
-    setCommentInputs((currentInputs) => ({
-      ...currentInputs,
-      [postId]: value,
-    }));
-  }
-
-  function handleCommentSubmit(postId: number) {
-    const value = commentInputs[postId];
-
-    if (!value || !value.trim()) return;
-
-    const newComment: Comment = {
-      id: Date.now(),
-      author: getAuthorName(),
-      content: value,
-      createdAt: new Date().toLocaleString(),
-    };
-
-    void addComment(postId, newComment);
-
-    setCommentInputs((currentInputs) => ({
-      ...currentInputs,
-      [postId]: "",
-    }));
+  async function handlePost() {
+    const content = newPost.trim();
+    if (!content || createStatus === "loading") return;
+    try {
+      await createPost(content);
+      setNewPost("");
+    } catch {
+      // The store retains the typed error and the composer retains the draft.
+    }
   }
 
   return (
     <section className="space-y-4">
-      <Card padding="sm">
-        <TextArea
-          value={newPost}
-          onChange={(e) => setNewPost(e.target.value)}
-          placeholder="Post something..."
-          variant="composer"
-        />
-
-        <div className="flex items-center justify-between">
-          <div className="flex gap-3">
-            <Button variant="soft" size="none" className="px-4 py-2 text-sm font-medium">
-              Video
-            </Button>
-            <Button variant="soft" size="none" className="px-4 py-2 text-sm font-medium">
-              Photo
-            </Button>
-            <Button variant="soft" size="none" className="px-4 py-2 text-sm font-medium">
-              Attach
+      {user ? (
+        <Card padding="sm">
+          <TextArea
+            value={newPost}
+            onChange={(event) => setNewPost(event.target.value)}
+            placeholder="Post something..."
+            variant="composer"
+            maxLength={3000}
+            disabled={createStatus === "loading"}
+            aria-label="Post content"
+          />
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-xs text-gray-500">
+              {newPost.length}/3000
+            </span>
+            <Button
+              onClick={() => void handlePost()}
+              disabled={!newPost.trim()}
+              isLoading={createStatus === "loading"}
+              loadingText="Posting..."
+            >
+              Share Post
             </Button>
           </div>
-
-          <Button
-            onClick={handlePost}
+          {createError && (
+            <div className="mt-3">
+              <FormError message={getPostErrorMessage(createError)} />
+            </div>
+          )}
+        </Card>
+      ) : (
+        <Card padding="sm" className="flex items-center justify-between gap-4">
+          <p className="text-sm text-gray-600">Sign in to share a post.</p>
+          <Link
+            href="/login"
+            className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
           >
-            Share Post
-          </Button>
+            Sign in
+          </Link>
+        </Card>
+      )}
+
+      {status === "loading" && posts.length === 0 && (
+        <div aria-label="Loading posts" className="space-y-4">
+          {[0, 1, 2].map((item) => (
+            <Card key={item}>
+              <Skeleton shape="text" className="mb-2 w-40" />
+              <Skeleton shape="text" className="mb-5 w-28" />
+              <Skeleton shape="text" className="mb-2 w-full" />
+              <Skeleton shape="text" className="w-3/4" />
+            </Card>
+          ))}
         </div>
-      </Card>
+      )}
+
+      {status === "error" && (
+        <EmptyState
+          title="The feed could not be loaded"
+          description={getPostErrorMessage(error)}
+          action={
+            <Button onClick={() => void loadPosts().catch(() => undefined)}>
+              Try again
+            </Button>
+          }
+        />
+      )}
+
+      {status === "loaded" && posts.length === 0 && (
+        <EmptyState
+          title="No posts yet"
+          description="Be the first person to share something."
+        />
+      )}
 
       {posts.map((post) => (
-        <Card
-          as="article"
-          key={post.id}
-        >
-          <div className="mb-3">
-            <h3 className="font-semibold text-gray-900">{post.author}</h3>
-            <p className="text-xs text-gray-500">{post.createdAt}</p>
-          </div>
-
-          <p className="text-sm leading-6 text-gray-700">{post.content}</p>
-
-          <div className="mt-4 flex gap-4 border-b border-gray-100 pb-4 text-sm text-gray-500">
-            <Button
-              variant="unstyled"
-              size="none"
-              shape="none"
-              onClick={() => handleLike(post.id)}
-              className={
-                post.isLiked ? "font-semibold text-black" : "hover:text-black"
-              }
-            >
-              {post.isLiked ? "Liked" : "Like"} ({post.likes})
-            </Button>
-
-            <span>Comments ({post.comments.length})</span>
-
-            <Button variant="unstyled" size="none" shape="none" className="hover:text-black">
-              Share
-            </Button>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {post.comments.map((comment) => (
-              <div key={comment.id} className="rounded-xl bg-gray-50 p-3">
-                <div className="mb-1 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {comment.author}
-                  </p>
-                  <p className="text-xs text-gray-400">{comment.createdAt}</p>
-                </div>
-
-                <p className="text-sm text-gray-700">{comment.content}</p>
-              </div>
-            ))}
-
-            <div className="flex gap-2">
-              <Input
-                value={commentInputs[post.id] || ""}
-                onChange={(e) =>
-                  handleCommentChange(post.id, e.target.value)
-                }
-                placeholder="Write a comment..."
-                variant="subtle"
-              />
-
-              <Button
-                onClick={() => handleCommentSubmit(post.id)}
-              >
-                Send
-              </Button>
-            </div>
-          </div>
-        </Card>
+        <PostCard key={post.id} post={post} />
       ))}
+
+      <PostPagination
+        metadata={pageMetadata}
+        isLoading={status === "loading"}
+        onPageChange={(page) =>
+          void loadPosts({ page, size: pageMetadata?.size }).catch(
+            () => undefined,
+          )
+        }
+      />
     </section>
   );
 }

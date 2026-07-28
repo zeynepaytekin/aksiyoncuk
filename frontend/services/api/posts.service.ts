@@ -1,43 +1,58 @@
-import { DEFAULT_POSTS } from "@/constants/feed";
-import { STORAGE_KEYS } from "@/constants/storage";
-import {
-  readStorage,
-  writeStorage,
-} from "@/services/storage/clientStorage";
-import type { Post } from "@/types/feed";
+import { apiRequest } from "@/services/api/apiClient";
+import type {
+  CreatePostRequest,
+  Post,
+  PostPage,
+  PostPaginationParams,
+} from "@/types/feed";
 
-export type PostsService = {
-  getAll: () => Promise<Post[]>;
-  getByUserEmail: (email: string) => Promise<Post[]>;
-  saveAll: (posts: Post[]) => Promise<Post[]>;
-};
+export type PostsService = typeof postsService;
 
-function normalizePost(post: Post): Post {
-  return {
-    ...post,
-    likes: post.likes ?? 0,
-    isLiked: post.isLiked ?? false,
-    comments: post.comments ?? [],
-    userEmail: post.userEmail ?? "",
-  };
+function paginationQuery(params?: PostPaginationParams): string {
+  const searchParams = new URLSearchParams();
+
+  if (params?.page !== undefined) {
+    searchParams.set("page", String(params.page));
+  }
+  if (params?.size !== undefined) {
+    searchParams.set("size", String(params.size));
+  }
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
 }
 
-function readPosts(): Post[] {
-  const posts = readStorage<Post[] | null>(STORAGE_KEYS.posts, null);
-  return posts ? posts.map(normalizePost) : DEFAULT_POSTS;
-}
-
-export const postsService: PostsService = {
-  async getAll() {
-    return readPosts();
+export const postsService = {
+  getGlobal(params?: PostPaginationParams): Promise<PostPage> {
+    return apiRequest<PostPage>(`/posts${paginationQuery(params)}`, {
+      authenticated: true,
+    });
   },
 
-  async getByUserEmail(email) {
-    return readPosts().filter((post) => post.userEmail === email);
+  getMine(params?: PostPaginationParams): Promise<PostPage> {
+    return apiRequest<PostPage>(`/posts/me${paginationQuery(params)}`, {
+      authenticated: true,
+    });
   },
 
-  async saveAll(posts) {
-    writeStorage(STORAGE_KEYS.posts, posts);
-    return posts;
+  getById(postId: string): Promise<Post> {
+    return apiRequest<Post>(`/posts/${encodeURIComponent(postId)}`, {
+      authenticated: true,
+    });
+  },
+
+  create(request: CreatePostRequest): Promise<Post> {
+    return apiRequest<Post>("/posts", {
+      method: "POST",
+      body: request,
+      authenticated: true,
+    });
+  },
+
+  delete(postId: string): Promise<void> {
+    return apiRequest<void>(`/posts/${encodeURIComponent(postId)}`, {
+      method: "DELETE",
+      authenticated: true,
+    });
   },
 };

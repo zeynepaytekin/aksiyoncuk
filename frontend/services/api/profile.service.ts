@@ -1,6 +1,5 @@
 import { apiRequest } from "@/services/api/apiClient";
 import { jobsService } from "@/services/api/jobs.service";
-import { postsService } from "@/services/api/posts.service";
 import { worksService } from "@/services/api/works.service";
 import type {
   CurrentProfile,
@@ -24,12 +23,11 @@ export type ProfileService = {
 
 export const profileService: ProfileService = {
   async getContent(email) {
-    const [posts, jobs, works] = await Promise.all([
-      postsService.getByUserEmail(email),
+    const [jobs, works] = await Promise.all([
       jobsService.getByUserEmail(email),
       worksService.getByUserEmail(email),
     ]);
-    return { posts, jobs, works };
+    return { jobs, works };
   },
 
   getCurrent() {
