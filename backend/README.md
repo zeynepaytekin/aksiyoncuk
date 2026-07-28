@@ -384,7 +384,8 @@ Example:
     "fullName": "Creative User",
     "professionalTitle": "Director"
   },
-  "ownedByCurrentUser": true
+  "ownedByCurrentUser": true,
+  "commentCount": 0
 }
 ```
 
@@ -420,8 +421,71 @@ Invoke-RestMethod -Method Delete `
 ```
 
 Missing posts return `POST_NOT_FOUND`; non-owner deletion returns
-`POST_DELETE_FORBIDDEN`. Media, likes, comments, reposts, editing, and
-moderation are not implemented yet.
+`POST_DELETE_FORBIDDEN`. Media, likes, reposts, editing, and moderation are not
+implemented yet.
+
+## Post comments
+
+| Method | Endpoint | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/posts/{postId}/comments` | Bearer token | Create a comment |
+| `GET` | `/api/v1/posts/{postId}/comments?page=0&size=20` | Public | List comments oldest first |
+| `DELETE` | `/api/v1/comments/{commentId}` | Bearer token | Delete an owned comment |
+
+Comment content is trimmed, must not be blank, and is limited to 2000
+characters. List pagination defaults to page `0` and size `20`; size must be
+between `1` and `50`. Anonymous responses set `ownedByCurrentUser` to `false`.
+Only the comment owner may delete it. Deleting a post also deletes its comments.
+
+```json
+{
+  "id": "4e737e1b-f790-45fa-9e3e-f8caafbb4fb5",
+  "postId": "392951b8-871d-46af-8087-cefc679f3b1c",
+  "content": "Great project.",
+  "createdAt": "2026-01-01T12:01:00Z",
+  "updatedAt": "2026-01-01T12:01:00Z",
+  "author": {
+    "id": "79ff9da2-80ce-4421-9a0e-af71310c782e",
+    "username": "creativeuser",
+    "fullName": "Creative User",
+    "professionalTitle": "Director"
+  },
+  "ownedByCurrentUser": true
+}
+```
+
+curl:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/posts/POST_ID/comments \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"Great project."}'
+
+curl "http://localhost:8080/api/v1/posts/POST_ID/comments?page=0&size=20"
+curl -X DELETE http://localhost:8080/api/v1/comments/COMMENT_ID \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+```
+
+PowerShell:
+
+```powershell
+$comment = Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/posts/$($post.id)/comments" `
+  -Headers $headers `
+  -ContentType application/json `
+  -Body (@{ content = 'Great project.' } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  "http://localhost:8080/api/v1/posts/$($post.id)/comments?page=0&size=20"
+Invoke-RestMethod -Method Delete `
+  -Uri "http://localhost:8080/api/v1/comments/$($comment.id)" `
+  -Headers $headers
+```
+
+Missing comments return `COMMENT_NOT_FOUND`; non-owner deletion returns
+`COMMENT_DELETE_FORBIDDEN`. Replies, editing, comment likes, mentions,
+notifications, moderation, and attachments are not implemented.
 
 Production uses the same required database environment variables with the `prod` profile. API documentation is disabled in that profile:
 
@@ -470,7 +534,7 @@ com.aksiyoncuk
 ├── auth             JWT authentication and refresh-token sessions
 ├── user             Registration and user persistence
 ├── profile          Private/public profile API and persistence
-├── post             Post feature (future)
+├── post             Posts and post comments
 ├── work             Portfolio work feature (future)
 └── job              Job feature (future)
 ```

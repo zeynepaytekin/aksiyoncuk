@@ -16,7 +16,8 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
           """
           SELECT new com.aksiyoncuk.post.repository.PostRow(
             p.id, p.content, p.createdAt, p.updatedAt,
-            u.id, u.username, u.fullName, pr.professionalTitle)
+            u.id, u.username, u.fullName, pr.professionalTitle,
+            (SELECT count(c) FROM PostComment c WHERE c.post = p))
           FROM Post p
           JOIN p.author u
           JOIN Profile pr ON pr.user = u
@@ -29,7 +30,8 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
           """
           SELECT new com.aksiyoncuk.post.repository.PostRow(
             p.id, p.content, p.createdAt, p.updatedAt,
-            u.id, u.username, u.fullName, pr.professionalTitle)
+            u.id, u.username, u.fullName, pr.professionalTitle,
+            (SELECT count(c) FROM PostComment c WHERE c.post = p))
           FROM Post p
           JOIN p.author u
           JOIN Profile pr ON pr.user = u
@@ -42,7 +44,8 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
       """
       SELECT new com.aksiyoncuk.post.repository.PostRow(
         p.id, p.content, p.createdAt, p.updatedAt,
-        u.id, u.username, u.fullName, pr.professionalTitle)
+        u.id, u.username, u.fullName, pr.professionalTitle,
+        (SELECT count(c) FROM PostComment c WHERE c.post = p))
       FROM Post p
       JOIN p.author u
       JOIN Profile pr ON pr.user = u

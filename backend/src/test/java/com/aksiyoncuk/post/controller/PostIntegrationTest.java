@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.aksiyoncuk.auth.repository.RefreshTokenRepository;
+import com.aksiyoncuk.post.comment.repository.PostCommentRepository;
 import com.aksiyoncuk.post.repository.PostRepository;
 import com.aksiyoncuk.profile.repository.ProfileRepository;
 import com.aksiyoncuk.user.repository.UserRepository;
@@ -57,6 +58,7 @@ class PostIntegrationTest {
   @Autowired private MockMvc mockMvc;
   @Autowired private ObjectMapper objectMapper;
   @Autowired private PostRepository postRepository;
+  @Autowired private PostCommentRepository commentRepository;
   @Autowired private RefreshTokenRepository refreshTokenRepository;
   @Autowired private ProfileRepository profileRepository;
   @Autowired private UserRepository userRepository;
@@ -67,6 +69,7 @@ class PostIntegrationTest {
 
   @BeforeEach
   void setUp() throws Exception {
+    commentRepository.deleteAll();
     postRepository.deleteAll();
     refreshTokenRepository.deleteAll();
     profileRepository.deleteAll();
@@ -96,6 +99,7 @@ class PostIntegrationTest {
                         org.hamcrest.Matchers.containsString("/api/v1/posts/")))
             .andExpect(jsonPath("$.content").value("My first post"))
             .andExpect(jsonPath("$.ownedByCurrentUser").value(true))
+            .andExpect(jsonPath("$.commentCount").value(0))
             .andExpect(jsonPath("$.author.username").value("firstuser"))
             .andReturn();
     var body = result.getResponse().getContentAsString();
@@ -182,18 +186,152 @@ class PostIntegrationTest {
   }
 
   @Test
-  void flywayAppliedAllFiveMigrations() {
+  void flywayAppliedAllSixMigrations() {
     var versions =
         jdbcTemplate.queryForList(
             "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank",
             String.class);
-    assertThat(versions).containsExactly("1", "2", "3", "4", "5");
+    assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6");
+  }
+
+  @Test
+  void authenticatedCreationAndPublicOldestFirstListingAreSafe() throws Exception {
+    var postId =
+        createdId(create(firstToken, "Discuss").andReturn().getResponse().getContentAsString());
+
+    mockMvc
+        .perform(
+            post("/api/v1/posts/{postId}/comments", postId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"content\":\"No token\"}"))
+        .andExpect(status().isUnauthorized());
+
+    var first =
+        createComment(firstToken, postId, "  First comment  ")
+            .andExpect(status().isCreated())
+            .andExpect(
+                header()
+                    .string(
+                        HttpHeaders.LOCATION,
+                        org.hamcrest.Matchers.containsString("/api/v1/comments/")))
+            .andExpect(jsonPath("$.content").value("First comment"))
+            .andExpect(jsonPath("$.ownedByCurrentUser").value(true))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    createComment(secondToken, postId, "Second comment").andExpect(status().isCreated());
+
+    var body =
+        mockMvc
+            .perform(get("/api/v1/posts/{postId}/comments", postId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].content").value("First comment"))
+            .andExpect(jsonPath("$.content[1].content").value("Second comment"))
+            .andExpect(jsonPath("$.content[0].ownedByCurrentUser").value(false))
+            .andExpect(jsonPath("$.totalElements").value(2))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(first).doesNotContainIgnoringCase("email").doesNotContainIgnoringCase("password");
+    assertThat(body).doesNotContainIgnoringCase("email").doesNotContainIgnoringCase("password");
+
+    mockMvc
+        .perform(
+            get("/api/v1/posts/{postId}/comments", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].ownedByCurrentUser").value(true))
+        .andExpect(jsonPath("$.content[1].ownedByCurrentUser").value(false));
+  }
+
+  @Test
+  void commentDeletionEnforcesOwnershipAndUpdatesPostCount() throws Exception {
+    var postId =
+        createdId(
+            create(firstToken, "Count comments").andReturn().getResponse().getContentAsString());
+    var commentId =
+        createdId(
+            createComment(firstToken, postId, "Delete me")
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+    mockMvc
+        .perform(get("/api/v1/posts/{postId}", postId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.commentCount").value(1));
+    mockMvc
+        .perform(
+            delete("/api/v1/comments/{commentId}", commentId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(secondToken)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("COMMENT_DELETE_FORBIDDEN"));
+    mockMvc
+        .perform(
+            delete("/api/v1/comments/{commentId}", commentId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isNoContent());
+    mockMvc
+        .perform(get("/api/v1/posts/{postId}", postId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.commentCount").value(0));
+  }
+
+  @Test
+  void commentMissingPostMalformedAndPaginationErrorsAreStructured() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/posts/{postId}/comments", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"content\":\"Missing parent\"}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("POST_NOT_FOUND"));
+    mockMvc
+        .perform(get("/api/v1/posts/not-a-uuid/comments"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+    mockMvc
+        .perform(get("/api/v1/posts/{postId}/comments?page=-1", UUID.randomUUID()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
+    mockMvc
+        .perform(
+            delete("/api/v1/comments/{commentId}", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("COMMENT_NOT_FOUND"));
+  }
+
+  @Test
+  void deletingPostCascadesComments() throws Exception {
+    var postId =
+        createdId(create(firstToken, "Cascade").andReturn().getResponse().getContentAsString());
+    createComment(secondToken, postId, "Remaining comment").andExpect(status().isCreated());
+    assertThat(commentRepository.countByPostId(postId)).isEqualTo(1);
+
+    mockMvc
+        .perform(
+            delete("/api/v1/posts/{postId}", postId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(firstToken)))
+        .andExpect(status().isNoContent());
+
+    assertThat(commentRepository.countByPostId(postId)).isZero();
   }
 
   private org.springframework.test.web.servlet.ResultActions create(String token, String content)
       throws Exception {
     return mockMvc.perform(
         post("/api/v1/posts")
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(Map.of("content", content))));
+  }
+
+  private org.springframework.test.web.servlet.ResultActions createComment(
+      String token, UUID postId, String content) throws Exception {
+    return mockMvc.perform(
+        post("/api/v1/posts/{postId}/comments", postId)
             .header(HttpHeaders.AUTHORIZATION, bearer(token))
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(Map.of("content", content))));

@@ -10,7 +10,8 @@ public record PostResponse(
     Instant createdAt,
     Instant updatedAt,
     PostAuthorResponse author,
-    boolean ownedByCurrentUser) {
+    boolean ownedByCurrentUser,
+    long commentCount) {
 
   public static PostResponse from(PostRow row, UUID currentUserId) {
     return new PostResponse(
@@ -20,6 +21,7 @@ public record PostResponse(
         row.updatedAt(),
         new PostAuthorResponse(
             row.authorId(), row.username(), row.fullName(), row.professionalTitle()),
-        currentUserId != null && currentUserId.equals(row.authorId()));
+        currentUserId != null && currentUserId.equals(row.authorId()),
+        row.commentCount());
   }
 }

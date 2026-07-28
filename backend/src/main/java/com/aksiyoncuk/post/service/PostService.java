@@ -64,7 +64,8 @@ public class PostService {
             user.getId(),
             user.getUsername(),
             user.getFullName(),
-            profile.getProfessionalTitle()),
+            profile.getProfessionalTitle(),
+            0),
         user.getId());
   }
 

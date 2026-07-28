@@ -138,6 +138,14 @@ class PostServiceTest {
   private PostRow row(UUID authorId) {
     var now = Instant.now();
     return new PostRow(
-        UUID.randomUUID(), "Post", now, now, authorId, "creativeuser", "Creative User", "Director");
+        UUID.randomUUID(),
+        "Post",
+        now,
+        now,
+        authorId,
+        "creativeuser",
+        "Creative User",
+        "Director",
+        3);
   }
 }
