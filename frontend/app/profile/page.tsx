@@ -1,18 +1,16 @@
 "use client";
 
-import Navbar from "../../components/layout/Navbar";
-import ProfileContent from "../../components/profile/ProfileContent";
-import ProfileHeader from "../../components/profile/ProfileHeader";
-import ProfileSidebar from "../../components/profile/ProfileSidebar";
-import { useAuth } from "../../context/AuthContext";
+import AppShell from "@/components/layout/AppShell";
+import ProfileContent from "@/components/profile/ProfileContent";
+import ProfileHeader from "@/components/profile/ProfileHeader";
+import ProfileSidebar from "@/components/profile/ProfileSidebar";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const user = useAuthStore((state) => state.user);
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
-      <Navbar />
-
+    <AppShell>
       <section className="mx-auto max-w-6xl px-4 py-6">
         <ProfileHeader user={user} />
 
@@ -21,6 +19,6 @@ export default function ProfilePage() {
           <ProfileContent />
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }

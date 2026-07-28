@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../context/AuthContext";
+
+import Button from "@/components/ui/Button";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function Navbar() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     router.push("/");
   }
 
@@ -55,12 +58,14 @@ export default function Navbar() {
               <span className="hidden text-sm font-medium text-gray-700 md:inline">
                 {user.fullName || user.email}
               </span>
-              <button
+              <Button
+                variant="secondary"
+                shape="pill"
                 onClick={handleLogout}
-                className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="font-medium"
               >
                 Logout
-              </button>
+              </Button>
             </>
           ) : (
             <>

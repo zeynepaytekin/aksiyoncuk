@@ -1,7 +1,9 @@
+import Card from "@/components/ui/Card";
+
 export default function RightSidebar() {
   return (
     <aside className="space-y-4">
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <Card>
         <h3 className="mb-3 text-base font-semibold text-gray-900">Trending</h3>
         <ul className="space-y-3 text-sm text-gray-700">
           <li>#IndependentFilm</li>
@@ -10,9 +12,9 @@ export default function RightSidebar() {
           <li>#CreativeCollaboration</li>
           <li>#FestivalSeason</li>
         </ul>
-      </div>
+      </Card>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <Card>
         <h3 className="mb-3 text-base font-semibold text-gray-900">Suggested People</h3>
         <div className="space-y-4">
           <div>
@@ -28,7 +30,7 @@ export default function RightSidebar() {
             <p className="text-sm text-gray-500">Cinematographer</p>
           </div>
         </div>
-      </div>
+      </Card>
     </aside>
   );
 }

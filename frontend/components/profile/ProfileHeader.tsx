@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { User } from "../../lib/auth";
+
+import Avatar from "@/components/ui/Avatar";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import type { User } from "@/types/auth";
 
 type ProfileHeaderProps = {
   user: User | null;
@@ -7,13 +11,13 @@ type ProfileHeaderProps = {
 
 export default function ProfileHeader({ user }: ProfileHeaderProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <Card padding="none" className="overflow-hidden">
       <div className="h-40 bg-black" />
 
       <div className="px-6 pb-6">
         <div className="-mt-14 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex items-end gap-4">
-            <div className="h-28 w-28 rounded-full border-4 border-white bg-gray-200" />
+            <Avatar size="xl" className="border-4 border-white" />
 
             <div className="pb-2">
               <h1 className="text-3xl font-bold text-gray-900">
@@ -35,12 +39,12 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
             >
               Edit Profile
             </Link>
-            <button className="rounded-full bg-black px-5 py-2 text-sm font-semibold text-white hover:opacity-90">
+            <Button shape="pill" size="none" className="px-5 py-2 text-sm font-semibold">
               Follow
-            </button>
-            <button className="rounded-full border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            </Button>
+            <Button variant="secondary" shape="pill" size="none" className="px-5 py-2 text-sm font-semibold">
               Message
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -59,6 +63,6 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

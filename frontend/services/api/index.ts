@@ -1,0 +1,12 @@
+export { authService } from "./auth.service";
+export type { AuthService } from "./auth.service";
+export { crowdfundingService } from "./crowdfunding.service";
+export type { CrowdfundingService } from "./crowdfunding.service";
+export { jobsService } from "./jobs.service";
+export type { JobsService } from "./jobs.service";
+export { postsService } from "./posts.service";
+export type { PostsService } from "./posts.service";
+export { profileService } from "./profile.service";
+export type { ProfileService } from "./profile.service";
+export { worksService } from "./works.service";
+export type { WorksService } from "./works.service";
