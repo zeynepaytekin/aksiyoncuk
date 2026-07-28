@@ -12,7 +12,6 @@ import { useContentStore } from "@/store/content.store";
 
 export default function ProfileContent() {
   const user = useAuthStore((state) => state.user);
-  const works = useContentStore((state) => state.works);
   const jobs = useContentStore((state) => state.jobs);
   const loadProfile = useContentStore((state) => state.loadProfile);
 
@@ -24,7 +23,7 @@ export default function ProfileContent() {
   return (
     <section className="space-y-6 lg:col-span-8">
       <ProfileNavigation />
-      <ProfileWorksSection works={works} />
+      <ProfileWorksSection />
       <ProfileJobsSection jobs={jobs} />
       <ProfilePostsSection />
       <CrowdfundingSection />

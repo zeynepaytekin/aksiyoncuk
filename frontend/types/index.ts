@@ -16,4 +16,12 @@ export type {
 } from "./comments";
 export type { Job, JobCategory } from "./jobs";
 export type { ProfileContentData } from "./profile";
-export type { Work, WorkType } from "./works";
+export type {
+  CreateWorkRequest,
+  UpdateWorkRequest,
+  Work,
+  WorkOwner,
+  WorkPage,
+  WorkPaginationParams,
+  WorkType,
+} from "./works";

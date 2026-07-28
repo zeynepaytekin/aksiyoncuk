@@ -27,11 +27,18 @@ persisted by the authentication layer. This is an interim design: the refresh
 token should move to a backend-managed `Secure`, `HttpOnly`, `SameSite` cookie
 when that endpoint contract is available.
 
-Profile identity comes from `/auth/me`. The existing posts, works, jobs, and
-other content sections remain mock-backed. Private profile display and editing
+Profile identity comes from `/auth/me`. Jobs and other unfinished content
+sections remain mock-backed. Private profile display and editing
 use `/profiles/me`; public profiles use `/profiles/{username}` through the
 static-export-compatible client route `/users?username={username}`. Profile
 drafts are component-local and are never persisted in browser storage.
+
+Portfolio Works use the real `/works` and `/users/{username}/works` APIs.
+Private works appear on `/profile`; public works appear on
+`/users?username={username}`. Static client routes `/works/edit?id={workId}` and
+`/works/view?id={workId}` provide owner editing and public detail views without
+requiring a Next.js runtime server. Work form drafts and API responses are not
+persisted in browser storage. Legacy `aksiyoncuk_works` data is ignored.
 
 ## Verification
 

@@ -9,6 +9,7 @@ import { sessionStorage } from "@/services/auth/sessionStorage";
 import { profileStateCoordinator } from "@/services/profile/profileStateCoordinator";
 import { commentsStateCoordinator } from "@/services/comments/commentsStateCoordinator";
 import { postsStateCoordinator } from "@/services/posts/postsStateCoordinator";
+import { worksStateCoordinator } from "@/services/works/worksStateCoordinator";
 import type {
   AuthResponse,
   AuthUser,
@@ -118,6 +119,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       applySession(response, set);
       postsStateCoordinator.authenticationChanged(true);
       commentsStateCoordinator.authenticationChanged();
+      worksStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -134,6 +136,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       applySession(await authService.login(data), set);
       postsStateCoordinator.authenticationChanged(true);
       commentsStateCoordinator.authenticationChanged();
+      worksStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -156,6 +159,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       if (!wasAuthenticated) {
         postsStateCoordinator.authenticationChanged(true);
         commentsStateCoordinator.authenticationChanged();
+        worksStateCoordinator.authenticationChanged(true);
       }
     } catch (error) {
       get().clearSession();
@@ -180,6 +184,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     profileStateCoordinator.clearPrivate();
     postsStateCoordinator.authenticationChanged(false);
     commentsStateCoordinator.authenticationChanged();
+    worksStateCoordinator.authenticationChanged(false);
     set(clearedState);
   },
 

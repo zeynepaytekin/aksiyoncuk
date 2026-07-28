@@ -82,6 +82,9 @@ vi.mock("@/store/profile.store", async (importOriginal) => {
 vi.mock("@/components/profile/ProfileContent", () => ({
   default: () => <div>Mock content fixtures</div>,
 }));
+vi.mock("@/components/works/PublicWorksSection", () => ({
+  default: () => <div>Public works</div>,
+}));
 
 describe("profile UI", () => {
   beforeEach(() => {

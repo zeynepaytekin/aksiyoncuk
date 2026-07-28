@@ -8,6 +8,7 @@ import ProfileHeader from "@/components/profile/ProfileHeader";
 import ProfileSidebar from "@/components/profile/ProfileSidebar";
 import EmptyState from "@/components/ui/EmptyState";
 import Skeleton from "@/components/ui/Skeleton";
+import PublicWorksSection from "@/components/works/PublicWorksSection";
 import {
   normalizeProfileUsername,
   useProfileStore,
@@ -65,6 +66,7 @@ function PublicProfileContent() {
       <ProfileHeader profile={profile} isOwner={false} />
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
         <ProfileSidebar profile={profile} />
+        <PublicWorksSection username={profile.username} />
       </div>
     </>
   );

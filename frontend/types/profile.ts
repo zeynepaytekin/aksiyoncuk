@@ -1,9 +1,7 @@
 import type { Job } from "./jobs";
-import type { Work } from "./works";
 
 export type ProfileContentData = {
   jobs: Job[];
-  works: Work[];
 };
 
 export type CurrentProfileUser = {
