@@ -48,3 +48,11 @@ npx tsc --noEmit --incremental false
 npm test
 npm run build
 ```
+## Jobs / Project Board
+
+Jobs now use the Spring Boot API rather than browser storage. Public users can
+browse `/jobs` and `/jobs/view?id=JOB_ID`. Authenticated owners can create,
+edit, close, reopen, and delete listings through the static-export-compatible
+query routes. Job drafts and API responses are not persisted in browser
+storage. Applications, saved jobs, messaging, attachments, and payments are
+not implemented.

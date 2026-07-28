@@ -44,7 +44,7 @@ export default function Navbar() {
           <Link href="#" className="hover:text-black">
             Network
           </Link>
-          <Link href="#" className="hover:text-black">
+          <Link href="/jobs" className="hover:text-black">
             Jobs
           </Link>
           <Link href="#" className="hover:text-black">

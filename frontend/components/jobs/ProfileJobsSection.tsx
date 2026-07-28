@@ -1,57 +1,30 @@
+"use client";
 import Link from "next/link";
-
-import Badge from "@/components/ui/Badge";
+import { useEffect } from "react";
+import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
-import type { Job } from "@/types/jobs";
+import Skeleton from "@/components/ui/Skeleton";
+import JobCard from "@/components/jobs/JobCard";
+import JobPagination from "@/components/jobs/JobPagination";
+import { getJobErrorMessage } from "@/services/api/jobErrorMessage";
+import { useJobsStore } from "@/store/jobs.store";
 
-type ProfileJobsSectionProps = {
-  jobs: Job[];
-};
-
-export default function ProfileJobsSection({
-  jobs,
-}: ProfileJobsSectionProps) {
-  return (
-    <Card as="section">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-bold">Jobs Posted</h2>
-        <Link
-          href="/jobs/create"
-          className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-        >
-          Add Job
-        </Link>
-      </div>
-
-      {jobs.length === 0 ? (
-        <EmptyState compact title="Henüz iş/proje ilanı eklemedin." />
-      ) : (
-        <div className="space-y-4">
-          {jobs.map((job) => (
-            <div
-              key={job.id}
-              className="rounded-xl border border-gray-200 p-4"
-            >
-              <div className="mb-2 flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{job.title}</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {job.category} · {job.location}
-                  </p>
-                </div>
-
-                <Badge>Open</Badge>
-              </div>
-
-              <p className="text-sm leading-6 text-gray-600">
-                {job.description}
-              </p>
-              <p className="mt-2 text-xs text-gray-400">{job.createdAt}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
+export default function ProfileJobsSection() {
+  const jobs = useJobsStore((state) => state.myJobs); const metadata = useJobsStore((state) => state.myPageMetadata);
+  const status = useJobsStore((state) => state.myStatus); const error = useJobsStore((state) => state.myError);
+  const load = useJobsStore((state) => state.loadMyJobs);
+  useEffect(() => { if (status === "idle") void load().catch(() => undefined); }, [load, status]);
+  return <Card as="section"><div className="mb-4 flex items-center justify-between">
+    <h2 className="text-lg font-bold">Jobs Posted</h2>
+    <Link href="/jobs/create" className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">Add Job</Link>
+  </div>
+  {status === "loading" && jobs.length === 0 && <Skeleton role="status" aria-label="Loading jobs" className="h-48" />}
+  {status === "error" && jobs.length === 0 && <EmptyState compact title="Unable to load jobs"
+    description={getJobErrorMessage(error)} action={<Button size="sm" onClick={() => void load()}>Try again</Button>} />}
+  {status === "loaded" && jobs.length === 0 && <EmptyState compact title="You have not posted any jobs yet." />}
+  {jobs.length > 0 && <div className="space-y-4">{jobs.map((job) => <JobCard key={job.id} job={job} ownerControls />)}</div>}
+  <JobPagination metadata={metadata} loading={status === "loading"}
+    onPage={(page) => void load({ page, size: metadata?.size }).catch(() => undefined)} />
+  </Card>;
 }

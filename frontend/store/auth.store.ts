@@ -10,6 +10,7 @@ import { profileStateCoordinator } from "@/services/profile/profileStateCoordina
 import { commentsStateCoordinator } from "@/services/comments/commentsStateCoordinator";
 import { postsStateCoordinator } from "@/services/posts/postsStateCoordinator";
 import { worksStateCoordinator } from "@/services/works/worksStateCoordinator";
+import { jobsStateCoordinator } from "@/services/jobs/jobsStateCoordinator";
 import type {
   AuthResponse,
   AuthUser,
@@ -120,6 +121,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       postsStateCoordinator.authenticationChanged(true);
       commentsStateCoordinator.authenticationChanged();
       worksStateCoordinator.authenticationChanged(true);
+      jobsStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -137,6 +139,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       postsStateCoordinator.authenticationChanged(true);
       commentsStateCoordinator.authenticationChanged();
       worksStateCoordinator.authenticationChanged(true);
+      jobsStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -160,6 +163,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         postsStateCoordinator.authenticationChanged(true);
         commentsStateCoordinator.authenticationChanged();
         worksStateCoordinator.authenticationChanged(true);
+        jobsStateCoordinator.authenticationChanged(true);
       }
     } catch (error) {
       get().clearSession();
@@ -185,6 +189,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     postsStateCoordinator.authenticationChanged(false);
     commentsStateCoordinator.authenticationChanged();
     worksStateCoordinator.authenticationChanged(false);
+    jobsStateCoordinator.authenticationChanged(false);
     set(clearedState);
   },
 

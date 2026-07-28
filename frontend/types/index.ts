@@ -14,7 +14,19 @@ export type {
   CreateCommentRequest,
   PostComment,
 } from "./comments";
-export type { Job, JobCategory } from "./jobs";
+export type {
+  CompensationType,
+  CreateJobRequest,
+  Job,
+  JobCategory,
+  JobFilters,
+  JobOwner,
+  JobPage,
+  JobPaginationParams,
+  JobStatus,
+  UpdateJobRequest,
+  WorkMode,
+} from "./jobs";
 export type { ProfileContentData } from "./profile";
 export type {
   CreateWorkRequest,
