@@ -106,7 +106,7 @@ export async function apiRequest<T>(
     throw new ApiError(
       0,
       "NETWORK_ERROR",
-      "Unable to reach the authentication service.",
+      "Unable to reach the API service.",
       [],
       { cause },
     );

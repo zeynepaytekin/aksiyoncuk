@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/api/apiClient";
 import { authService } from "@/services/api/auth.service";
 import { sessionStorage } from "@/services/auth/sessionStorage";
+import { profileStateCoordinator } from "@/services/profile/profileStateCoordinator";
 import { useAuthStore } from "@/store/auth.store";
 import type { AuthResponse } from "@/types/auth";
 
@@ -111,5 +112,13 @@ describe("auth store", () => {
     await useAuthStore.getState().logout();
     expect(useAuthStore.getState().user).toBeNull();
     expect(sessionStorage.read()).toBeNull();
+  });
+
+  it("clears private profile state on logout", async () => {
+    const clearPrivate = vi.fn();
+    profileStateCoordinator.configure(clearPrivate);
+    await useAuthStore.getState().logout();
+    expect(clearPrivate).toHaveBeenCalled();
+    profileStateCoordinator.configure(() => undefined);
   });
 });

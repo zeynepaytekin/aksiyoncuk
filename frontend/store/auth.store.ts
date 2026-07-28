@@ -6,6 +6,7 @@ import { ApiError } from "@/services/api/apiClient";
 import { authService } from "@/services/api/auth.service";
 import { sessionCoordinator } from "@/services/auth/sessionCoordinator";
 import { sessionStorage } from "@/services/auth/sessionStorage";
+import { profileStateCoordinator } from "@/services/profile/profileStateCoordinator";
 import type {
   AuthResponse,
   AuthUser,
@@ -165,6 +166,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   clearSession() {
     sessionCoordinator.setAccessToken(null);
     sessionStorage.clear();
+    profileStateCoordinator.clearPrivate();
     set(clearedState);
   },
 

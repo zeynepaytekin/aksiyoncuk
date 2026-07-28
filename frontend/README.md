@@ -28,8 +28,10 @@ token should move to a backend-managed `Secure`, `HttpOnly`, `SameSite` cookie
 when that endpoint contract is available.
 
 Profile identity comes from `/auth/me`. The existing posts, works, jobs, and
-other profile content remain mock-backed. Profile editing is intentionally
-read-only until the backend exposes a profile update endpoint.
+other content sections remain mock-backed. Private profile display and editing
+use `/profiles/me`; public profiles use `/profiles/{username}` through the
+static-export-compatible client route `/users?username={username}`. Profile
+drafts are component-local and are never persisted in browser storage.
 
 ## Verification
 
