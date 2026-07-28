@@ -3,7 +3,13 @@ node_modules/
 dist/
 build/
 target/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/target/
 .env
+.env.*
+!.env.example
 .env.local
 .idea/
 .vscode/
