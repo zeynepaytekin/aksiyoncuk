@@ -9,6 +9,7 @@ import com.aksiyoncuk.network.exception.InvalidNetworkPaginationException;
 import com.aksiyoncuk.network.exception.SelfFollowNotAllowedException;
 import com.aksiyoncuk.network.repository.NetworkUserRow;
 import com.aksiyoncuk.network.repository.UserFollowRepository;
+import com.aksiyoncuk.notification.service.NotificationService;
 import com.aksiyoncuk.profile.exception.ProfileNotFoundException;
 import com.aksiyoncuk.user.entity.User;
 import com.aksiyoncuk.user.repository.UserRepository;
@@ -26,7 +27,9 @@ import org.springframework.data.domain.PageImpl;
 class FollowServiceTest {
   @Mock private UserRepository users;
   @Mock private UserFollowRepository follows;
+  @Mock private NotificationService notifications;
   @Mock private User target;
+  @Mock private User actor;
   @Mock private NetworkUserRow row;
 
   private FollowService service;
@@ -35,7 +38,7 @@ class FollowServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new FollowService(users, follows);
+    service = new FollowService(users, follows, notifications);
     currentId = UUID.randomUUID();
     targetId = UUID.randomUUID();
     lenient().when(target.getId()).thenReturn(targetId);
@@ -48,6 +51,17 @@ class FollowServiceTest {
     service.follow(principal(), " CreativeUser ");
     service.follow(principal(), "CREATIVEUSER");
     verify(follows, times(2)).insertIfAbsent(currentId, targetId);
+  }
+
+  @Test
+  void firstFollowCreatesOneNotificationAndRepeatedFollowDoesNot() {
+    when(follows.insertIfAbsent(currentId, targetId)).thenReturn(1, 0);
+    when(users.findById(currentId)).thenReturn(Optional.of(actor));
+
+    service.follow(principal(), "creativeuser");
+    service.follow(principal(), "creativeuser");
+
+    verify(notifications).userFollowed(actor, target);
   }
 
   @Test

@@ -41,4 +41,36 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
   Optional<JobRow> findProjectedById(@Param("id") UUID id);
 
   long countByOwnerId(UUID ownerId);
+
+  @Query(
+      value =
+          PROJECTION
+              + "WHERE (lower(j.title) like :pattern escape '!' "
+              + "OR lower(j.description) like :pattern escape '!' "
+              + "OR lower(coalesce(j.location, '')) like :pattern escape '!' "
+              + "OR lower(u.username) like :pattern escape '!' "
+              + "OR lower(u.fullName) like :pattern escape '!') "
+              + "AND j.status=:status AND (:category IS NULL OR j.category=:category) "
+              + "AND (:workMode IS NULL OR j.workMode=:workMode) "
+              + "AND (:compensationType IS NULL OR j.compensationType=:compensationType) "
+              + "AND (:ownerUsername IS NULL OR u.username=:ownerUsername)",
+      countQuery =
+          "SELECT count(j) FROM Job j JOIN j.owner u "
+              + "WHERE (lower(j.title) like :pattern escape '!' "
+              + "OR lower(j.description) like :pattern escape '!' "
+              + "OR lower(coalesce(j.location, '')) like :pattern escape '!' "
+              + "OR lower(u.username) like :pattern escape '!' "
+              + "OR lower(u.fullName) like :pattern escape '!') "
+              + "AND j.status=:status AND (:category IS NULL OR j.category=:category) "
+              + "AND (:workMode IS NULL OR j.workMode=:workMode) "
+              + "AND (:compensationType IS NULL OR j.compensationType=:compensationType) "
+              + "AND (:ownerUsername IS NULL OR u.username=:ownerUsername)")
+  Page<JobRow> search(
+      @Param("pattern") String pattern,
+      @Param("status") JobStatus status,
+      @Param("category") JobCategory category,
+      @Param("workMode") WorkMode workMode,
+      @Param("compensationType") CompensationType compensationType,
+      @Param("ownerUsername") String ownerUsername,
+      Pageable pageable);
 }

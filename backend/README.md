@@ -849,7 +849,9 @@ com.aksiyoncuk
 ├── profile          Private/public profile API and persistence
 ├── post             Posts and post comments
 ├── work             Portfolio work API and persistence
-└── job              Jobs / Project Board API and persistence
+├── job              Jobs / Project Board API and persistence
+├── network          Follow relationships and network summaries
+└── notification     Polling-based in-app notifications
 ```
 
 Future feature packages should own their controllers, DTOs, services, repositories, entities, and mappers. Controllers must expose DTOs rather than JPA entities. Database changes must be introduced through versioned Flyway migrations.
@@ -866,7 +868,8 @@ Health details are not returned publicly. Other Actuator endpoints remain unexpo
 ## Follow and network API
 
 The network API models a direct, public follow relationship. Connection requests, private
-accounts, blocking, recommendations, messaging, and follow notifications are not implemented.
+accounts, blocking, recommendations, and messaging are not implemented. New follows generate
+in-app notifications through the notifications module.
 
 | Method | Endpoint | Authentication | Behavior |
 | --- | --- | --- | --- |
@@ -928,3 +931,160 @@ Invoke-RestMethod -Method Delete `
   -Uri "http://localhost:8080/api/v1/users/creativeuser/follow" `
   -Headers $headers
 ```
+
+## Notifications API
+
+Notifications are persisted when a user is followed, another user's post is liked or
+commented on, a job receives an application, or an application is accepted or rejected.
+Self-likes and self-comments do not notify the actor. The API is polling-based; email, push,
+SMS, WebSocket delivery, preferences, and digests are not implemented.
+
+| Method | Endpoint | Authentication | Behavior |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/notifications?page=0&size=20` | Required | List the current user's notifications |
+| `GET` | `/api/v1/notifications/summary` | Required | Return the unread count |
+| `POST` | `/api/v1/notifications/{id}/read` | Required | Idempotently mark one notification read |
+| `POST` | `/api/v1/notifications/{id}/unread` | Required | Idempotently mark one notification unread |
+| `POST` | `/api/v1/notifications/read-all` | Required | Mark all current-user notifications read |
+
+The list is ordered by `createdAt DESC, id DESC`. `page` is zero-based and `size` must be
+between 1 and 50. Add `unreadOnly=true` to return unread items only, and use `type` with one
+of:
+
+- `USER_FOLLOWED`
+- `POST_LIKED`
+- `POST_COMMENTED`
+- `JOB_APPLICATION_RECEIVED`
+- `JOB_APPLICATION_ACCEPTED`
+- `JOB_APPLICATION_REJECTED`
+
+Example response:
+
+```json
+{
+  "content": [
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "type": "POST_LIKED",
+      "entityType": "POST",
+      "entityId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "message": "Creative User liked your post.",
+      "read": false,
+      "readAt": null,
+      "createdAt": "2026-07-28T18:00:00Z",
+      "actor": {
+        "id": "6ba7b811-9dad-11d1-80b4-00c04fd430c8",
+        "username": "creativeuser",
+        "fullName": "Creative User",
+        "professionalTitle": "Director"
+      }
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true
+}
+```
+
+The actor is `null` when that account has been deleted. Notification responses never expose
+email addresses, password hashes, tokens, or internal deduplication keys.
+
+curl:
+
+```bash
+curl "http://localhost:8080/api/v1/notifications?unreadOnly=true&type=POST_LIKED" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+curl http://localhost:8080/api/v1/notifications/summary \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+curl -X POST http://localhost:8080/api/v1/notifications/$NOTIFICATION_ID/read \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+curl -X POST http://localhost:8080/api/v1/notifications/$NOTIFICATION_ID/unread \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+curl -X POST http://localhost:8080/api/v1/notifications/read-all \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+PowerShell:
+
+```powershell
+$headers = @{ Authorization = "Bearer $accessToken" }
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/v1/notifications?unreadOnly=true" `
+  -Headers $headers
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/notifications/summary" -Headers $headers
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/notifications/$notificationId/read" `
+  -Headers $headers
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/notifications/$notificationId/unread" `
+  -Headers $headers
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/notifications/read-all" `
+  -Headers $headers
+```
+
+## Search API
+
+Search is public and operates directly on the existing users, profiles, posts, works, and jobs
+tables. When a valid bearer token is supplied, viewer-specific fields such as
+`followedByCurrentUser`, `likedByCurrentUser`, and `ownedByCurrentUser` are populated.
+
+| Method | Endpoint | Search and filters |
+| --- | --- | --- |
+| `GET` | `/api/v1/search` | Combined results; `q`, `limitPerType` (1–10) |
+| `GET` | `/api/v1/search/users` | Username, full name, title, location |
+| `GET` | `/api/v1/search/posts` | Content and author; optional `authorUsername` |
+| `GET` | `/api/v1/search/works` | Title, description, owner; optional `workType`, `ownerUsername`, `releaseYear` |
+| `GET` | `/api/v1/search/jobs` | Title, description, location, owner; optional `category`, `workMode`, `status`, `compensationType`, `ownerUsername` |
+
+`q` is trimmed, repeated whitespace is collapsed, and matching is case-insensitive. It must
+contain 2–100 characters. Literal `%` and `_` characters are escaped rather than interpreted as
+SQL wildcards. `page` starts at zero and `size` must be 1–50. Invalid queries, pagination, and
+filters return `INVALID_SEARCH_QUERY`, `INVALID_SEARCH_PAGINATION`, and
+`INVALID_SEARCH_FILTER`, respectively. An unknown optional username filter returns an empty
+page.
+
+User ranking places exact usernames first, then username prefixes, full-name matches, and
+professional-title/location matches. Remaining ties use username and UUID ascending. Posts,
+works, and jobs use `createdAt DESC, id DESC`; jobs default to `OPEN` unless `status` is
+explicitly supplied.
+
+Combined response:
+
+```json
+{
+  "query": "editor",
+  "users": { "content": [], "totalElements": 0 },
+  "posts": { "content": [], "totalElements": 0 },
+  "works": { "content": [], "totalElements": 0 },
+  "jobs": { "content": [], "totalElements": 0 }
+}
+```
+
+curl:
+
+```bash
+curl "http://localhost:8080/api/v1/search?q=editor&limitPerType=5"
+curl "http://localhost:8080/api/v1/search/users?q=director&page=0&size=20"
+curl "http://localhost:8080/api/v1/search/posts?q=montage&authorUsername=creativeuser"
+curl "http://localhost:8080/api/v1/search/works?q=film&workType=SHORT_FILM&releaseYear=2026"
+curl "http://localhost:8080/api/v1/search/jobs?q=editor&category=PROFESSIONAL&workMode=REMOTE"
+```
+
+PowerShell:
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/search?q=editor&limitPerType=5"
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/search/users?q=director&page=0&size=20"
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/v1/search/jobs?q=editor&category=PROFESSIONAL&workMode=REMOTE"
+```
+
+The current implementation is bounded substring search. No V13 index migration is added:
+ordinary B-tree indexes do not accelerate leading-wildcard matches, while enabling `pg_trgm`
+and building several GIN indexes would add migration and write costs that are premature for the
+current dataset. At larger scale, measure representative queries first, then introduce a focused
+`pg_trgm` index set, PostgreSQL full-text search, or a dedicated search engine.

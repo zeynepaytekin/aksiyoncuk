@@ -4,14 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
+import com.aksiyoncuk.notification.service.NotificationService;
+import com.aksiyoncuk.post.entity.Post;
 import com.aksiyoncuk.post.exception.PostNotFoundException;
 import com.aksiyoncuk.post.like.repository.PostLikeRepository;
 import com.aksiyoncuk.post.repository.PostRepository;
+import com.aksiyoncuk.user.entity.User;
 import com.aksiyoncuk.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.UUID;
@@ -27,6 +31,10 @@ class PostLikeServiceTest {
   @Mock private PostLikeRepository likeRepository;
   @Mock private PostRepository postRepository;
   @Mock private UserRepository userRepository;
+  @Mock private NotificationService notificationService;
+  @Mock private Post post;
+  @Mock private User user;
+  @Mock private User owner;
 
   private PostLikeService service;
   private UUID postId;
@@ -35,7 +43,8 @@ class PostLikeServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new PostLikeService(likeRepository, postRepository, userRepository);
+    service =
+        new PostLikeService(likeRepository, postRepository, userRepository, notificationService);
     postId = UUID.randomUUID();
     userId = UUID.randomUUID();
     principal = new AuthenticatedUser(userId);
@@ -53,6 +62,7 @@ class PostLikeServiceTest {
 
     assertThat(response.likedByCurrentUser()).isTrue();
     assertThat(response.likeCount()).isEqualTo(1);
+    verify(notificationService).postLiked(user, owner, postId);
   }
 
   @Test
@@ -67,11 +77,12 @@ class PostLikeServiceTest {
 
     assertThat(response.likedByCurrentUser()).isTrue();
     assertThat(response.likeCount()).isEqualTo(1);
+    verify(notificationService, never()).postLiked(any(), any(), any());
   }
 
   @Test
   void unlikeRemovesLike() {
-    when(postRepository.existsById(postId)).thenReturn(true);
+    when(postRepository.findById(postId)).thenReturn(java.util.Optional.of(post));
     when(likeRepository.deleteByPostIdAndUserId(postId, userId)).thenReturn(1);
     when(likeRepository.countByPostId(postId)).thenReturn(0L);
 
@@ -83,7 +94,7 @@ class PostLikeServiceTest {
 
   @Test
   void repeatedUnlikeIsIdempotent() {
-    when(postRepository.existsById(postId)).thenReturn(true);
+    when(postRepository.findById(postId)).thenReturn(java.util.Optional.of(post));
     when(likeRepository.deleteByPostIdAndUserId(postId, userId)).thenReturn(0);
     when(likeRepository.countByPostId(postId)).thenReturn(0L);
 
@@ -95,7 +106,7 @@ class PostLikeServiceTest {
 
   @Test
   void missingPostIsExplicitAndDoesNotWrite() {
-    when(postRepository.existsById(postId)).thenReturn(false);
+    when(postRepository.findById(postId)).thenReturn(java.util.Optional.empty());
 
     assertThatThrownBy(() -> service.like(postId, principal))
         .isInstanceOf(PostNotFoundException.class);
@@ -103,7 +114,10 @@ class PostLikeServiceTest {
   }
 
   private void validPostAndUser() {
-    when(postRepository.existsById(postId)).thenReturn(true);
-    when(userRepository.existsById(userId)).thenReturn(true);
+    when(postRepository.findById(postId)).thenReturn(java.util.Optional.of(post));
+    when(userRepository.findById(userId)).thenReturn(java.util.Optional.of(user));
+    lenient().when(post.getAuthor()).thenReturn(owner);
+    lenient().when(user.getId()).thenReturn(userId);
+    lenient().when(owner.getId()).thenReturn(UUID.randomUUID());
   }
 }

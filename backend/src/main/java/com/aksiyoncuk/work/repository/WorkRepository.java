@@ -1,6 +1,7 @@
 package com.aksiyoncuk.work.repository;
 
 import com.aksiyoncuk.work.entity.Work;
+import com.aksiyoncuk.work.entity.WorkType;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -52,4 +53,37 @@ public interface WorkRepository extends JpaRepository<Work, UUID> {
   Optional<WorkRow> findProjectedById(@Param("id") UUID id);
 
   long countByOwnerId(UUID ownerId);
+
+  @Query(
+      value =
+          """
+          SELECT new com.aksiyoncuk.work.repository.WorkRow(
+            w.id, w.title, w.description, w.workType, w.projectUrl, w.releaseYear,
+            w.createdAt, w.updatedAt, u.id, u.username, u.fullName, p.professionalTitle)
+          FROM Work w JOIN w.owner u JOIN Profile p ON p.user = u
+          WHERE (lower(w.title) like :pattern escape '!'
+             OR lower(coalesce(w.description, '')) like :pattern escape '!'
+             OR lower(u.username) like :pattern escape '!'
+             OR lower(u.fullName) like :pattern escape '!')
+            AND (:workType IS NULL OR w.workType = :workType)
+            AND (:ownerUsername IS NULL OR u.username = :ownerUsername)
+            AND (:releaseYear IS NULL OR w.releaseYear = :releaseYear)
+          """,
+      countQuery =
+          """
+          SELECT count(w) FROM Work w JOIN w.owner u
+          WHERE (lower(w.title) like :pattern escape '!'
+             OR lower(coalesce(w.description, '')) like :pattern escape '!'
+             OR lower(u.username) like :pattern escape '!'
+             OR lower(u.fullName) like :pattern escape '!')
+            AND (:workType IS NULL OR w.workType = :workType)
+            AND (:ownerUsername IS NULL OR u.username = :ownerUsername)
+            AND (:releaseYear IS NULL OR w.releaseYear = :releaseYear)
+          """)
+  Page<WorkRow> search(
+      @Param("pattern") String pattern,
+      @Param("workType") WorkType workType,
+      @Param("ownerUsername") String ownerUsername,
+      @Param("releaseYear") Integer releaseYear,
+      Pageable pageable);
 }

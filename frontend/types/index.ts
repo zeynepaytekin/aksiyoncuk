@@ -54,3 +54,27 @@ export type {
   WorkPaginationParams,
   WorkType,
 } from "./works";
+export type {
+  Notification,
+  NotificationActor,
+  NotificationEntityType,
+  NotificationFilters,
+  NotificationPage,
+  NotificationPaginationParams,
+  NotificationQueryParams,
+  NotificationSummary,
+  NotificationType,
+} from "./notifications";
+export type {
+  CombinedSearchParams,
+  CombinedSearchResponse,
+  JobSearchParams,
+  PostSearchParams,
+  SearchGroup,
+  SearchPage,
+  SearchPaginationParams,
+  SearchResourceType,
+  SearchUser,
+  UserSearchParams,
+  WorkSearchParams,
+} from "./search";

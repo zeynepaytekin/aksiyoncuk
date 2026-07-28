@@ -13,6 +13,8 @@ import { worksStateCoordinator } from "@/services/works/worksStateCoordinator";
 import { jobsStateCoordinator } from "@/services/jobs/jobsStateCoordinator";
 import { jobApplicationsStateCoordinator } from "@/services/jobApplications/jobApplicationsStateCoordinator";
 import { networkStateCoordinator } from "@/services/network/networkStateCoordinator";
+import { notificationsStateCoordinator } from "@/services/notifications/notificationsStateCoordinator";
+import { searchStateCoordinator } from "@/services/search/searchStateCoordinator";
 import type {
   AuthResponse,
   AuthUser,
@@ -125,6 +127,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       worksStateCoordinator.authenticationChanged(true);
       jobsStateCoordinator.authenticationChanged(true);
       networkStateCoordinator.authenticationChanged(true);
+      notificationsStateCoordinator.authenticationChanged(true);
+      searchStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -144,6 +148,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       worksStateCoordinator.authenticationChanged(true);
       jobsStateCoordinator.authenticationChanged(true);
       networkStateCoordinator.authenticationChanged(true);
+      notificationsStateCoordinator.authenticationChanged(true);
+      searchStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -169,6 +175,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         worksStateCoordinator.authenticationChanged(true);
         jobsStateCoordinator.authenticationChanged(true);
         networkStateCoordinator.authenticationChanged(true);
+        notificationsStateCoordinator.authenticationChanged(true);
+        searchStateCoordinator.authenticationChanged(true);
       }
     } catch (error) {
       get().clearSession();
@@ -197,6 +205,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     jobsStateCoordinator.authenticationChanged(false);
     jobApplicationsStateCoordinator.clearPrivate();
     networkStateCoordinator.authenticationChanged(false);
+    notificationsStateCoordinator.authenticationChanged(false);
+    searchStateCoordinator.authenticationChanged(false);
     set(clearedState);
   },
 

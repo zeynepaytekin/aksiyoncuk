@@ -70,4 +70,36 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
       """)
   Optional<PostRow> findProjectedById(
       @Param("id") UUID id, @Param("currentUserId") UUID currentUserId);
+
+  @Query(
+      value =
+          """
+          SELECT new com.aksiyoncuk.post.repository.PostRow(
+            p.id, p.content, p.createdAt, p.updatedAt,
+            u.id, u.username, u.fullName, pr.professionalTitle,
+            (SELECT count(c) FROM PostComment c WHERE c.post = p),
+            (SELECT count(l) FROM PostLike l WHERE l.post = p),
+            CASE WHEN :currentUserId IS NOT NULL AND
+              (SELECT count(ul) FROM PostLike ul
+                WHERE ul.post = p AND ul.user.id = :currentUserId) > 0
+              THEN true ELSE false END)
+          FROM Post p JOIN p.author u JOIN Profile pr ON pr.user = u
+          WHERE (lower(p.content) like :pattern escape '!'
+             OR lower(u.username) like :pattern escape '!'
+             OR lower(u.fullName) like :pattern escape '!')
+            AND (:authorUsername IS NULL OR u.username = :authorUsername)
+          """,
+      countQuery =
+          """
+          SELECT count(p) FROM Post p JOIN p.author u
+          WHERE (lower(p.content) like :pattern escape '!'
+             OR lower(u.username) like :pattern escape '!'
+             OR lower(u.fullName) like :pattern escape '!')
+            AND (:authorUsername IS NULL OR u.username = :authorUsername)
+          """)
+  Page<PostRow> search(
+      @Param("pattern") String pattern,
+      @Param("authorUsername") String authorUsername,
+      @Param("currentUserId") UUID currentUserId,
+      Pageable pageable);
 }

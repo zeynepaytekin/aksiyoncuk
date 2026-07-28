@@ -60,6 +60,8 @@ public class SecurityConfig {
                         "/swagger-ui/**",
                         "/swagger-ui.html")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/search", "/api/v1/search/**")
+                    .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/profiles/me")
                     .authenticated()
                     .requestMatchers(HttpMethod.PATCH, "/api/v1/profiles/me")
@@ -76,6 +78,16 @@ public class SecurityConfig {
                         "/api/v1/users/{username}/following")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/network/me")
+                    .authenticated()
+                    .requestMatchers(
+                        HttpMethod.GET, "/api/v1/notifications/summary", "/api/v1/notifications")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/notifications/read-all")
+                    .authenticated()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/notifications/{notificationId}/read",
+                        "/api/v1/notifications/{notificationId}/unread")
                     .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/v1/posts/me")
                     .authenticated()

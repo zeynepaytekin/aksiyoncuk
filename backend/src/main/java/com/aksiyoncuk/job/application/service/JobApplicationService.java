@@ -9,6 +9,7 @@ import com.aksiyoncuk.job.application.repository.*;
 import com.aksiyoncuk.job.entity.JobStatus;
 import com.aksiyoncuk.job.exception.JobNotFoundException;
 import com.aksiyoncuk.job.repository.JobRepository;
+import com.aksiyoncuk.notification.service.NotificationService;
 import com.aksiyoncuk.user.repository.UserRepository;
 import java.util.*;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,12 +23,17 @@ public class JobApplicationService {
   private final JobApplicationRepository applications;
   private final JobRepository jobs;
   private final UserRepository users;
+  private final NotificationService notifications;
 
   public JobApplicationService(
-      JobApplicationRepository applications, JobRepository jobs, UserRepository users) {
+      JobApplicationRepository applications,
+      JobRepository jobs,
+      UserRepository users,
+      NotificationService notifications) {
     this.applications = applications;
     this.jobs = jobs;
     this.users = users;
+    this.notifications = notifications;
   }
 
   @Transactional
@@ -46,6 +52,7 @@ public class JobApplicationService {
     } catch (DataIntegrityViolationException exception) {
       throw new JobApplicationConflictException();
     }
+    notifications.jobApplicationReceived(applicant, job.getOwner(), saved.getId());
     return projected(saved.getId(), principal.userId());
   }
 
@@ -130,6 +137,8 @@ public class JobApplicationService {
     if (target == JobApplicationStatus.ACCEPTED) application.accept(reviewer);
     else application.reject(reviewer);
     applications.flush();
+    notifications.jobApplicationReviewed(
+        reviewer, application.getApplicant(), id, target == JobApplicationStatus.ACCEPTED);
     return projected(id, principal.userId());
   }
 

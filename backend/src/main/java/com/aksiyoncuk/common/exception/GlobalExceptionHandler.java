@@ -6,9 +6,11 @@ import com.aksiyoncuk.common.response.FieldValidationError;
 import com.aksiyoncuk.job.application.exception.JobApplicationException;
 import com.aksiyoncuk.job.exception.JobException;
 import com.aksiyoncuk.network.exception.NetworkException;
+import com.aksiyoncuk.notification.exception.NotificationException;
 import com.aksiyoncuk.post.comment.exception.CommentException;
 import com.aksiyoncuk.post.exception.PostException;
 import com.aksiyoncuk.profile.exception.ProfileException;
+import com.aksiyoncuk.search.exception.SearchException;
 import com.aksiyoncuk.user.exception.RegistrationConflictException;
 import com.aksiyoncuk.work.exception.WorkException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -160,13 +162,30 @@ public class GlobalExceptionHandler {
         exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
   }
 
+  @ExceptionHandler(NotificationException.class)
+  ResponseEntity<ApiErrorResponse> handleNotificationException(
+      NotificationException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(SearchException.class)
+  ResponseEntity<ApiErrorResponse> handleSearchException(
+      SearchException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
   @ExceptionHandler(MethodArgumentTypeMismatchException.class)
   ResponseEntity<ApiErrorResponse> handleTypeMismatch(
       MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
     var pagination = "page".equals(exception.getName()) || "size".equals(exception.getName());
+    var search = request.getRequestURI().startsWith("/api/v1/search");
     return error(
         HttpStatus.BAD_REQUEST,
-        pagination ? "INVALID_PAGINATION" : "MALFORMED_REQUEST",
+        search
+            ? (pagination ? "INVALID_SEARCH_PAGINATION" : "INVALID_SEARCH_FILTER")
+            : (pagination ? "INVALID_PAGINATION" : "MALFORMED_REQUEST"),
         pagination ? "Pagination value is invalid" : "Request parameter is malformed",
         request,
         List.of());

@@ -2,6 +2,7 @@ package com.aksiyoncuk.post.comment.service;
 
 import com.aksiyoncuk.auth.exception.AuthException;
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
+import com.aksiyoncuk.notification.service.NotificationService;
 import com.aksiyoncuk.post.comment.dto.CommentPageResponse;
 import com.aksiyoncuk.post.comment.dto.CommentResponse;
 import com.aksiyoncuk.post.comment.dto.CreateCommentRequest;
@@ -30,14 +31,17 @@ public class PostCommentService {
   private final PostCommentRepository commentRepository;
   private final PostRepository postRepository;
   private final UserRepository userRepository;
+  private final NotificationService notificationService;
 
   public PostCommentService(
       PostCommentRepository commentRepository,
       PostRepository postRepository,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      NotificationService notificationService) {
     this.commentRepository = commentRepository;
     this.postRepository = postRepository;
     this.userRepository = userRepository;
+    this.notificationService = notificationService;
   }
 
   @Transactional
@@ -51,6 +55,9 @@ public class PostCommentService {
             .orElseThrow(
                 () -> new AuthException("INVALID_ACCESS_TOKEN", "Access token is invalid"));
     var comment = commentRepository.saveAndFlush(new PostComment(post, author, content));
+    if (!post.getAuthor().getId().equals(author.getId())) {
+      notificationService.postCommented(author, post.getAuthor(), postId, comment.getId());
+    }
     return commentRepository
         .findProjectedById(comment.getId())
         .map(row -> CommentResponse.from(row, principal.userId()))

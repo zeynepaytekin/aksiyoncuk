@@ -3,10 +3,12 @@ package com.aksiyoncuk.post.comment.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
+import com.aksiyoncuk.notification.service.NotificationService;
 import com.aksiyoncuk.post.comment.dto.CommentResponse;
 import com.aksiyoncuk.post.comment.dto.CreateCommentRequest;
 import com.aksiyoncuk.post.comment.entity.PostComment;
@@ -38,8 +40,10 @@ class PostCommentServiceTest {
   @Mock private PostCommentRepository commentRepository;
   @Mock private PostRepository postRepository;
   @Mock private UserRepository userRepository;
+  @Mock private NotificationService notificationService;
   @Mock private Post post;
   @Mock private User user;
+  @Mock private User postAuthor;
   @Mock private PostComment comment;
 
   private PostCommentService service;
@@ -48,9 +52,14 @@ class PostCommentServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new PostCommentService(commentRepository, postRepository, userRepository);
+    service =
+        new PostCommentService(
+            commentRepository, postRepository, userRepository, notificationService);
     userId = UUID.randomUUID();
     postId = UUID.randomUUID();
+    lenient().when(post.getAuthor()).thenReturn(postAuthor);
+    lenient().when(postAuthor.getId()).thenReturn(UUID.randomUUID());
+    lenient().when(user.getId()).thenReturn(userId);
   }
 
   @Test
@@ -82,6 +91,7 @@ class PostCommentServiceTest {
 
     assertThat(response.content()).isEqualTo("Comment");
     assertThat(response.ownedByCurrentUser()).isTrue();
+    verify(notificationService).postCommented(user, postAuthor, postId, commentId);
   }
 
   @Test

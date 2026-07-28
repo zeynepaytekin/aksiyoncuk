@@ -11,6 +11,7 @@ import com.aksiyoncuk.job.application.exception.*;
 import com.aksiyoncuk.job.application.repository.*;
 import com.aksiyoncuk.job.entity.*;
 import com.aksiyoncuk.job.repository.JobRepository;
+import com.aksiyoncuk.notification.service.NotificationService;
 import com.aksiyoncuk.user.entity.User;
 import com.aksiyoncuk.user.repository.UserRepository;
 import java.time.Instant;
@@ -25,6 +26,7 @@ class JobApplicationServiceTest {
   @Mock JobApplicationRepository applications;
   @Mock JobRepository jobs;
   @Mock UserRepository users;
+  @Mock NotificationService notifications;
   @Mock Job job;
   @Mock User owner;
   @Mock User applicant;
@@ -36,7 +38,7 @@ class JobApplicationServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new JobApplicationService(applications, jobs, users);
+    service = new JobApplicationService(applications, jobs, users, notifications);
     ownerId = UUID.randomUUID();
     applicantId = UUID.randomUUID();
     applicationId = UUID.randomUUID();
@@ -105,6 +107,7 @@ class JobApplicationServiceTest {
             UUID.randomUUID(), principal(applicantId), new CreateJobApplicationRequest(" Letter "));
     assertThat(response.ownedByCurrentApplicant()).isTrue();
     assertThat(response.manageableByCurrentJobOwner()).isFalse();
+    verify(notifications).jobApplicationReceived(applicant, owner, applicationId);
   }
 
   @Test
@@ -139,9 +142,11 @@ class JobApplicationServiceTest {
     when(applications.findProjectedById(applicationId)).thenReturn(Optional.of(row()));
     service.accept(applicationId, principal(ownerId));
     verify(application).accept(owner);
+    verify(notifications).jobApplicationReviewed(owner, applicant, applicationId, true);
     when(application.getStatus()).thenReturn(JobApplicationStatus.ACCEPTED);
     service.accept(applicationId, principal(ownerId));
     verify(application, times(1)).accept(owner);
+    verify(notifications, times(1)).jobApplicationReviewed(owner, applicant, applicationId, true);
     assertThatThrownBy(() -> service.reject(applicationId, principal(ownerId)))
         .isInstanceOf(InvalidJobApplicationException.class);
   }

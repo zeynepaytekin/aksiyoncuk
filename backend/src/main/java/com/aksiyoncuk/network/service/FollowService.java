@@ -6,6 +6,7 @@ import com.aksiyoncuk.network.exception.InvalidNetworkPaginationException;
 import com.aksiyoncuk.network.exception.SelfFollowNotAllowedException;
 import com.aksiyoncuk.network.repository.NetworkUserRow;
 import com.aksiyoncuk.network.repository.UserFollowRepository;
+import com.aksiyoncuk.notification.service.NotificationService;
 import com.aksiyoncuk.profile.exception.InvalidProfileUpdateException;
 import com.aksiyoncuk.profile.exception.ProfileNotFoundException;
 import com.aksiyoncuk.user.entity.User;
@@ -26,17 +27,23 @@ public class FollowService {
 
   private final UserRepository users;
   private final UserFollowRepository follows;
+  private final NotificationService notifications;
 
-  public FollowService(UserRepository users, UserFollowRepository follows) {
+  public FollowService(
+      UserRepository users, UserFollowRepository follows, NotificationService notifications) {
     this.users = users;
     this.follows = follows;
+    this.notifications = notifications;
   }
 
   @Transactional
   public FollowResponse follow(AuthenticatedUser principal, String username) {
     var target = target(username);
     rejectSelf(principal.userId(), target.getId());
-    follows.insertIfAbsent(principal.userId(), target.getId());
+    if (follows.insertIfAbsent(principal.userId(), target.getId()) == 1) {
+      var actor = users.findById(principal.userId()).orElseThrow(ProfileNotFoundException::new);
+      notifications.userFollowed(actor, target);
+    }
     return response(target, true);
   }
 
