@@ -24,7 +24,7 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
                 {user?.fullName || "Aksiyoncuk User"}
               </h1>
               <p className="text-sm text-gray-500">
-                {user?.role || "Director / Actor / Creator"}
+                Profile details not yet connected
               </p>
               <p className="mt-1 text-sm text-gray-500">
                 @{user?.username || "username"}

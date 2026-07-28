@@ -9,12 +9,15 @@ import Card from "@/components/ui/Card";
 import FormError from "@/components/ui/FormError";
 import FormField from "@/components/ui/FormField";
 import Input from "@/components/ui/Input";
+import { getAuthErrorMessage } from "@/services/api/authErrorMessage";
 import { useAuthStore } from "@/store/auth.store";
 
 export default function RegisterPage() {
   const router = useRouter();
   const isLoading = useAuthStore((state) => state.isLoading);
-  const login = useAuthStore((state) => state.login);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const register = useAuthStore((state) => state.register);
+  const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
 
   const [fullName, setFullName] = useState("");
@@ -24,10 +27,10 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isLoading && user) {
-      router.push("/home");
+    if (isInitialized && status === "authenticated" && user) {
+      router.replace("/home");
     }
-  }, [isLoading, router, user]);
+  }, [isInitialized, router, status, user]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,13 +41,14 @@ export default function RegisterPage() {
       return;
     }
 
-    await login({
-      fullName,
-      username,
-      email,
-    });
-
-    router.push("/home");
+    try {
+      await register({ fullName, username, email, password });
+      setPassword("");
+      router.push("/home");
+    } catch (submitError) {
+      setPassword("");
+      setError(getAuthErrorMessage(submitError));
+    }
   }
 
   return (
@@ -62,6 +66,8 @@ export default function RegisterPage() {
             <Input
               id="register-full-name"
               type="text"
+              autoComplete="name"
+              maxLength={100}
               placeholder="Your full name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -73,6 +79,11 @@ export default function RegisterPage() {
             <Input
               id="register-username"
               type="text"
+              autoComplete="username"
+              minLength={3}
+              maxLength={30}
+              pattern="[A-Za-z0-9._-]+"
+              title="Use 3–30 letters, numbers, periods, underscores, or hyphens."
               placeholder="@username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -84,6 +95,7 @@ export default function RegisterPage() {
             <Input
               id="register-email"
               type="email"
+              autoComplete="email"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -95,6 +107,9 @@ export default function RegisterPage() {
             <Input
               id="register-password"
               type="password"
+              autoComplete="new-password"
+              minLength={12}
+              maxLength={72}
               placeholder="Create a password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -108,6 +123,9 @@ export default function RegisterPage() {
             type="submit"
             size="auth"
             className="w-full transition"
+            isLoading={isLoading}
+            loadingText="Creating account…"
+            disabled={isLoading}
           >
             Create Account
           </Button>

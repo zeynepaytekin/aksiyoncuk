@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth.store";
@@ -10,9 +11,11 @@ export default function Navbar() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  async function handleLogout() {
-    await logout();
+  function handleLogout() {
+    setIsLoggingOut(true);
+    void logout();
     router.push("/");
   }
 
@@ -63,6 +66,9 @@ export default function Navbar() {
                 shape="pill"
                 onClick={handleLogout}
                 className="font-medium"
+                isLoading={isLoggingOut}
+                loadingText="Logging out…"
+                disabled={isLoggingOut}
               >
                 Logout
               </Button>

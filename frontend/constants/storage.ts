@@ -1,5 +1,6 @@
 export const STORAGE_KEYS = {
-  user: "aksiyoncuk_user",
+  authSession: "aksiyoncuk_auth_session",
+  legacyUser: "aksiyoncuk_user",
   posts: "aksiyoncuk_posts",
   jobs: "aksiyoncuk_jobs",
   works: "aksiyoncuk_works",

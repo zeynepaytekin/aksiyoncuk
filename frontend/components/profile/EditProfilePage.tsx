@@ -1,6 +1,5 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AppShell from "@/components/layout/AppShell";
@@ -14,96 +13,49 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 export default function EditProfilePage() {
   const router = useRouter();
-  const { isLoading, user, updateUser } = useRequireAuth();
-
-  const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("");
-  const [role, setRole] = useState("");
-  const [bio, setBio] = useState("");
-
-  useEffect(() => {
-    if (isLoading || !user) return;
-
-    queueMicrotask(() => {
-      setFullName(user.fullName || "");
-      setUsername(user.username || "");
-      setRole(user.role || "");
-      setBio(user.bio || "");
-    });
-  }, [isLoading, user]);
-
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    if (!user) return;
-
-    await updateUser({
-      ...user,
-      fullName,
-      username,
-      role,
-      bio,
-    });
-
-    router.push("/profile");
-  }
+  const { user } = useRequireAuth();
 
   return (
     <AppShell>
       <section className="mx-auto max-w-3xl px-4 py-8">
         <Card padding="lg">
           <h1 className="mb-6 text-2xl font-bold">Edit Profile</h1>
+          <p className="mb-6 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+            Profile editing will be enabled when a backend profile update
+            endpoint is available. Authenticated identity is read-only for now.
+          </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form className="space-y-5">
             <FormField label="Full Name" htmlFor="profile-full-name">
               <Input
                 id="profile-full-name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your full name"
+                value={user?.fullName ?? ""}
+                disabled
               />
             </FormField>
-
             <FormField label="Username" htmlFor="profile-username">
               <Input
                 id="profile-username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="username"
+                value={user?.username ?? ""}
+                disabled
               />
             </FormField>
-
             <FormField label="Role / Title" htmlFor="profile-role">
-              <Input
-                id="profile-role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="Director / Actor / Creator"
-              />
+              <Input id="profile-role" value="" disabled />
             </FormField>
-
             <FormField label="About" htmlFor="profile-bio">
-              <TextArea
-                id="profile-bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="Tell people about yourself..."
-              />
+              <TextArea id="profile-bio" value="" disabled />
             </FormField>
-
             <FormActions>
               <Button
+                type="button"
                 variant="secondary"
                 size="lg"
                 onClick={() => router.push("/profile")}
               >
                 Cancel
               </Button>
-
-              <Button
-                type="submit"
-                size="lg"
-              >
+              <Button type="button" size="lg" disabled>
                 Save Changes
               </Button>
             </FormActions>

@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aksiyoncuk frontend
 
-## Getting Started
+## Local setup
 
-First, run the development server:
+Requirements: Node.js, npm, the Spring Boot API on port 8080, and the
+PostgreSQL development container used by the backend.
 
-```bash
+```powershell
+Copy-Item .env.example .env.local
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. `NEXT_PUBLIC_API_BASE_URL` is embedded in the
+browser bundle at build time, so set it before `npm run build`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Authentication calls the real API at `/auth/register`, `/auth/login`,
+`/auth/refresh`, `/auth/logout`, and `/auth/me`. Registration is followed by a
+login because registration itself does not issue tokens.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Temporary browser token storage
 
-## Learn More
+The access token exists only in Zustand memory. Browser storage contains only
+the rotating refresh token and its expiry, which are needed to restore a
+session after reload. Passwords, access tokens, and user identity are never
+persisted by the authentication layer. This is an interim design: the refresh
+token should move to a backend-managed `Secure`, `HttpOnly`, `SameSite` cookie
+when that endpoint contract is available.
 
-To learn more about Next.js, take a look at the following resources:
+Profile identity comes from `/auth/me`. The existing posts, works, jobs, and
+other profile content remain mock-backed. Profile editing is intentionally
+read-only until the backend exposes a profile update endpoint.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Verification
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```powershell
+npm run lint
+npx tsc --noEmit --incremental false
+npm test
+npm run build
+```

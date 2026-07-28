@@ -9,36 +9,44 @@ import Card from "@/components/ui/Card";
 import FormError from "@/components/ui/FormError";
 import FormField from "@/components/ui/FormField";
 import Input from "@/components/ui/Input";
+import { getAuthErrorMessage } from "@/services/api/authErrorMessage";
 import { useAuthStore } from "@/store/auth.store";
 
 export default function LoginPage() {
   const router = useRouter();
   const isLoading = useAuthStore((state) => state.isLoading);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const status = useAuthStore((state) => state.status);
   const login = useAuthStore((state) => state.login);
   const user = useAuthStore((state) => state.user);
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isLoading && user) {
-      router.push("/home");
+    if (isInitialized && status === "authenticated" && user) {
+      router.replace("/home");
     }
-  }, [isLoading, router, user]);
+  }, [isInitialized, router, status, user]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
 
-    if (!email || !password) {
+    if (!identifier.trim() || !password) {
       setError("Please fill in all fields.");
       return;
     }
 
-    await login({ email });
-
-    router.push("/home");
+    try {
+      await login({ identifier, password });
+      setPassword("");
+      router.push("/home");
+    } catch (submitError) {
+      setPassword("");
+      setError(getAuthErrorMessage(submitError));
+    }
   }
 
   return (
@@ -52,13 +60,14 @@ export default function LoginPage() {
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <FormField label="Email" htmlFor="login-email">
+          <FormField label="Email or username" htmlFor="login-identifier">
             <Input
-              id="login-email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="login-identifier"
+              type="text"
+              autoComplete="username"
+              placeholder="you@example.com or username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               variant="auth"
             />
           </FormField>
@@ -67,6 +76,7 @@ export default function LoginPage() {
             <Input
               id="login-password"
               type="password"
+              autoComplete="current-password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -80,6 +90,9 @@ export default function LoginPage() {
             type="submit"
             size="auth"
             className="w-full transition"
+            isLoading={isLoading}
+            loadingText="Signing in…"
+            disabled={isLoading}
           >
             Sign In
           </Button>

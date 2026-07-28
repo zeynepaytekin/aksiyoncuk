@@ -1,34 +1,61 @@
-import { STORAGE_KEYS } from "@/constants/storage";
-import {
-  readStorage,
-  removeStorage,
-  writeStorage,
-} from "@/services/storage/clientStorage";
-import type { User } from "@/types/auth";
+import { apiRequest } from "@/services/api/apiClient";
+import type {
+  AuthResponse,
+  AuthUser,
+  LoginRequest,
+  RefreshRequest,
+  RegistrationRequest,
+  RegistrationResponse,
+} from "@/types/auth";
 
 export type AuthService = {
-  getCurrentUser: () => Promise<User | null>;
-  login: (user: User) => Promise<User>;
-  logout: () => Promise<void>;
-  updateUser: (user: User) => Promise<User>;
+  register: (request: RegistrationRequest) => Promise<RegistrationResponse>;
+  login: (request: LoginRequest) => Promise<AuthResponse>;
+  refresh: (refreshToken: string) => Promise<AuthResponse>;
+  logout: (refreshToken: string) => Promise<void>;
+  getCurrentUser: (accessToken: string) => Promise<AuthUser>;
 };
 
 export const authService: AuthService = {
-  async getCurrentUser() {
-    return readStorage<User | null>(STORAGE_KEYS.user, null);
+  register(request: RegistrationRequest): Promise<RegistrationResponse> {
+    return apiRequest("/auth/register", {
+      method: "POST",
+      body: request,
+      skipRefresh: true,
+    });
   },
 
-  async login(user) {
-    writeStorage(STORAGE_KEYS.user, user);
-    return user;
+  login(request: LoginRequest): Promise<AuthResponse> {
+    return apiRequest("/auth/login", {
+      method: "POST",
+      body: request,
+      skipRefresh: true,
+    });
   },
 
-  async logout() {
-    removeStorage(STORAGE_KEYS.user);
+  refresh(refreshToken: string): Promise<AuthResponse> {
+    const request: RefreshRequest = { refreshToken };
+    return apiRequest("/auth/refresh", {
+      method: "POST",
+      body: request,
+      skipRefresh: true,
+    });
   },
 
-  async updateUser(user) {
-    writeStorage(STORAGE_KEYS.user, user);
-    return user;
+  logout(refreshToken: string): Promise<void> {
+    return apiRequest("/auth/logout", {
+      method: "POST",
+      body: { refreshToken },
+      signal: AbortSignal.timeout(5_000),
+      skipRefresh: true,
+    });
+  },
+
+  getCurrentUser(accessToken: string): Promise<AuthUser> {
+    return apiRequest("/auth/me", {
+      method: "GET",
+      accessToken,
+      authenticated: true,
+    });
   },
 };

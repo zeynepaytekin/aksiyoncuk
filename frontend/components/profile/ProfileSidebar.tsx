@@ -3,18 +3,14 @@
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { useAuthStore } from "@/store/auth.store";
 
 export default function ProfileSidebar() {
-  const user = useAuthStore((state) => state.user);
-
   return (
     <aside className="space-y-6 lg:col-span-4">
       <Card as="section">
         <h2 className="mb-3 text-lg font-bold">About</h2>
         <p className="text-sm leading-6 text-gray-600">
-          {user?.bio ||
-            "Film ve yaratıcı sektör profesyonelleriyle bağlantı kuran, projeler geliştiren ve portfolyosunu sergileyen bir kullanıcı profili."}
+          Profile biography is not yet available from the authentication API.
         </p>
       </Card>
 

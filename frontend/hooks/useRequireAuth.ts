@@ -9,15 +9,19 @@ export function useRequireAuth() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
-  const login = useAuthStore((state) => state.login);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const status = useAuthStore((state) => state.status);
   const logout = useAuthStore((state) => state.logout);
-  const updateUser = useAuthStore((state) => state.updateUser);
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
+    if (isInitialized && status === "unauthenticated") {
+      router.replace("/login");
     }
-  }, [isLoading, router, user]);
+  }, [isInitialized, router, status]);
 
-  return { user, isLoading, login, logout, updateUser };
+  return {
+    user,
+    isLoading: !isInitialized || status === "initializing" || isLoading,
+    logout,
+  };
 }
