@@ -32,6 +32,7 @@ const post: Post = {
     professionalTitle: "Director",
   },
   ownedByCurrentUser: true,
+  commentCount: 0,
 };
 
 const metadata: PostPageMetadata = {

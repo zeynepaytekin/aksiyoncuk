@@ -1,22 +1,22 @@
-export interface PostAuthor {
+export interface CommentAuthor {
   id: string;
   username: string;
   fullName: string;
   professionalTitle: string | null;
 }
 
-export interface Post {
+export interface PostComment {
   id: string;
+  postId: string;
   content: string;
   createdAt: string;
   updatedAt: string;
-  author: PostAuthor;
+  author: CommentAuthor;
   ownedByCurrentUser: boolean;
-  commentCount: number;
 }
 
-export interface PostPage {
-  content: Post[];
+export interface CommentPage {
+  content: PostComment[];
   page: number;
   size: number;
   totalElements: number;
@@ -25,13 +25,13 @@ export interface PostPage {
   last: boolean;
 }
 
-export interface CreatePostRequest {
+export interface CreateCommentRequest {
   content: string;
 }
 
-export interface PostPaginationParams {
+export interface CommentPaginationParams {
   page?: number;
   size?: number;
 }
 
-export type PostPageMetadata = Omit<PostPage, "content">;
+export type CommentPageMetadata = Omit<CommentPage, "content">;

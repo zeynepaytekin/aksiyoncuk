@@ -4,6 +4,8 @@ import { create } from "zustand";
 
 import { ApiError } from "@/services/api/apiClient";
 import { postsService } from "@/services/api/posts.service";
+import { commentsStateCoordinator } from "@/services/comments/commentsStateCoordinator";
+import { postCommentCountCoordinator } from "@/services/posts/postCommentCountCoordinator";
 import { postsStateCoordinator } from "@/services/posts/postsStateCoordinator";
 import type {
   Post,
@@ -39,6 +41,8 @@ const DEFAULT_PAGE = 0;
 const DEFAULT_SIZE = 20;
 const globalRequests = new Map<string, Promise<void>>();
 const myRequests = new Map<string, Promise<void>>();
+const globalRequestTokens = new Map<string, symbol>();
+const myRequestTokens = new Map<string, symbol>();
 let globalRequestSequence = 0;
 let myRequestSequence = 0;
 
@@ -113,8 +117,9 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
     if (existing) return existing;
 
     const sequence = ++globalRequestSequence;
-    let request!: Promise<void>;
-    request = (async () => {
+    const token = Symbol(key);
+    globalRequestTokens.set(key, token);
+    const request = (async () => {
       set({ globalStatus: "loading", globalError: null });
       try {
         const page = await postsService.getGlobal(normalized);
@@ -132,8 +137,9 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
         }
         throw apiError;
       } finally {
-        if (globalRequests.get(key) === request) {
+        if (globalRequestTokens.get(key) === token) {
           globalRequests.delete(key);
+          globalRequestTokens.delete(key);
         }
       }
     })();
@@ -148,8 +154,9 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
     if (existing) return existing;
 
     const sequence = ++myRequestSequence;
-    let request!: Promise<void>;
-    request = (async () => {
+    const token = Symbol(key);
+    myRequestTokens.set(key, token);
+    const request = (async () => {
       set({ myStatus: "loading", myError: null });
       try {
         const page = await postsService.getMine(normalized);
@@ -167,8 +174,9 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
         }
         throw apiError;
       } finally {
-        if (myRequests.get(key) === request) {
+        if (myRequestTokens.get(key) === token) {
           myRequests.delete(key);
+          myRequestTokens.delete(key);
         }
       }
     })();
@@ -209,6 +217,7 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
     }));
     try {
       await postsService.delete(postId);
+      commentsStateCoordinator.postDeleted(postId);
       set((state) => {
         const wasGlobal = state.globalPosts.some(({ id }) => id === postId);
         const wasMine = state.myPosts.some(({ id }) => id === postId);
@@ -240,6 +249,10 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
   clearPosts() {
     globalRequestSequence += 1;
     myRequestSequence += 1;
+    globalRequests.clear();
+    myRequests.clear();
+    globalRequestTokens.clear();
+    myRequestTokens.clear();
     set({
       globalPosts: [],
       globalPageMetadata: null,
@@ -276,7 +289,8 @@ postsStateCoordinator.configure(() => {
 
   myRequestSequence += 1;
   globalRequestSequence += 1;
-  globalRequests.clear();
+    globalRequests.clear();
+    globalRequestTokens.clear();
   usePostsStore.setState({
     myPosts: [],
     myPageMetadata: null,
@@ -291,4 +305,20 @@ postsStateCoordinator.configure(() => {
   if (shouldReloadGlobal) {
     void state.loadGlobalPosts(params).catch(() => undefined);
   }
+});
+
+postCommentCountCoordinator.configure((postId, delta) => {
+  const update = (posts: Post[]) =>
+    posts.map((post) =>
+      post.id === postId
+        ? {
+            ...post,
+            commentCount: Math.max(0, post.commentCount + delta),
+          }
+        : post,
+    );
+  usePostsStore.setState((state) => ({
+    globalPosts: update(state.globalPosts),
+    myPosts: update(state.myPosts),
+  }));
 });

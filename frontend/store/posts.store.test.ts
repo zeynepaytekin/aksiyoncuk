@@ -28,6 +28,7 @@ const post: Post = {
     professionalTitle: "Director",
   },
   ownedByCurrentUser: true,
+  commentCount: 0,
 };
 
 function page(content: Post[] = [post]): PostPage {

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
+import PostComments from "@/components/feed/PostComments";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
 import { getPostErrorMessage } from "@/services/api/postErrorMessage";
+import { useCommentsStore } from "@/store/comments.store";
 import { usePostsStore } from "@/store/posts.store";
 import type { Post } from "@/types/feed";
 import { formatUtcDate } from "@/utils/formatDate";
@@ -19,7 +21,13 @@ type PostCardProps = {
 export default function PostCard({ compact = false, post }: PostCardProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const commentsRegionId = useId();
   const deletePost = usePostsStore((state) => state.deletePost);
+  const loadComments = useCommentsStore((state) => state.loadComments);
+  const commentStatus = useCommentsStore(
+    (state) => state.statusByPostId[post.id] ?? "idle",
+  );
   const deleteStatus = usePostsStore(
     (state) => state.deleteStatusById[post.id] ?? "idle",
   );
@@ -31,6 +39,14 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
       setIsConfirmingDelete(false);
     } catch (error) {
       setDeleteMessage(getPostErrorMessage(error));
+    }
+  }
+
+  function toggleComments() {
+    const opening = !commentsExpanded;
+    setCommentsExpanded(opening);
+    if (opening && commentStatus === "idle") {
+      void loadComments(post.id, { page: 0, size: 20 }).catch(() => undefined);
     }
   }
 
@@ -67,14 +83,26 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
       </p>
 
       <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
-        {["Like · Coming soon", "Comment · Coming soon", "Share · Coming soon"].map(
-          (label) => (
-            <Button key={label} variant="ghost" size="sm" disabled>
-              {label}
-            </Button>
-          ),
-        )}
+        <Button variant="ghost" size="sm" disabled>
+          Like · Coming soon
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={commentsExpanded}
+          aria-controls={commentsRegionId}
+          onClick={toggleComments}
+        >
+          Comments ({post.commentCount})
+        </Button>
+        <Button variant="ghost" size="sm" disabled>
+          Share · Coming soon
+        </Button>
       </div>
+
+      {commentsExpanded && (
+        <PostComments postId={post.id} regionId={commentsRegionId} />
+      )}
 
       <Modal
         isOpen={isConfirmingDelete}
