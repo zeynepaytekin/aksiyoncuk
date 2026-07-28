@@ -534,6 +534,116 @@ Invoke-RestMethod -Method Delete `
 Comment likes, reaction types, notifications, analytics, trending logic, and
 realtime updates are not implemented.
 
+## Portfolio works
+
+| Method | Endpoint | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/works` | Bearer token | Create a work |
+| `GET` | `/api/v1/works/me?page=0&size=20` | Bearer token | List the current user's works |
+| `GET` | `/api/v1/users/{username}/works?page=0&size=20` | Public | List a user's public works |
+| `GET` | `/api/v1/works/{workId}` | Public | Get a single work |
+| `PATCH` | `/api/v1/works/{workId}` | Owner bearer token | Partially update a work |
+| `DELETE` | `/api/v1/works/{workId}` | Owner bearer token | Delete a work |
+
+Supported `workType` values are `FILM`, `SHORT_FILM`, `DOCUMENTARY`, `SERIES`,
+`COMMERCIAL`, `MUSIC_VIDEO`, `PHOTOGRAPHY`, `THEATRE`, and `OTHER`.
+
+Titles are required, trimmed, and limited to 200 characters. Descriptions are
+optional and limited to 5000 characters. Project URLs must be absolute HTTP or
+HTTPS URLs and are limited to 500 characters. Release years must be between
+1888 and the current UTC year plus five. Pagination defaults to page `0` and
+size `20`; size must be between `1` and `50`.
+
+Create request:
+
+```json
+{
+  "title": "My Short Film",
+  "description": "Project description",
+  "workType": "SHORT_FILM",
+  "projectUrl": "https://example.com/project",
+  "releaseYear": 2026
+}
+```
+
+Safe response:
+
+```json
+{
+  "id": "2cc27ea4-e31e-42e0-8515-799deca16da7",
+  "title": "My Short Film",
+  "description": "Project description",
+  "workType": "SHORT_FILM",
+  "projectUrl": "https://example.com/project",
+  "releaseYear": 2026,
+  "createdAt": "2026-01-01T12:00:00Z",
+  "updatedAt": "2026-01-01T12:00:00Z",
+  "owner": {
+    "id": "79ff9da2-80ce-4421-9a0e-af71310c782e",
+    "username": "creativeuser",
+    "fullName": "Creative User",
+    "professionalTitle": "Director"
+  },
+  "ownedByCurrentUser": true
+}
+```
+
+PATCH distinguishes omitted fields from explicit null. Omitted fields remain
+unchanged; `null` clears `description`, `projectUrl`, or `releaseYear`. `title`
+and `workType` cannot be cleared.
+
+curl:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/works \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"My Short Film","description":"Project description","workType":"SHORT_FILM","projectUrl":"https://example.com/project","releaseYear":2026}'
+
+curl "http://localhost:8080/api/v1/users/creativeuser/works?page=0&size=20"
+curl http://localhost:8080/api/v1/works/WORK_ID
+
+curl -X PATCH http://localhost:8080/api/v1/works/WORK_ID \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"description":null,"releaseYear":2027}'
+
+curl -X DELETE http://localhost:8080/api/v1/works/WORK_ID \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+```
+
+PowerShell:
+
+```powershell
+$work = Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/works" `
+  -Headers $headers `
+  -ContentType application/json `
+  -Body (@{
+    title = 'My Short Film'
+    description = 'Project description'
+    workType = 'SHORT_FILM'
+    projectUrl = 'https://example.com/project'
+    releaseYear = 2026
+  } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  "http://localhost:8080/api/v1/users/creativeuser/works?page=0&size=20"
+Invoke-RestMethod -Method Patch `
+  -Uri "http://localhost:8080/api/v1/works/$($work.id)" `
+  -Headers $headers `
+  -ContentType application/json `
+  -Body (@{ description = $null; releaseYear = 2027 } | ConvertTo-Json)
+Invoke-RestMethod -Method Delete `
+  -Uri "http://localhost:8080/api/v1/works/$($work.id)" `
+  -Headers $headers
+```
+
+All works are public until visibility controls are introduced. Only owners may
+update or delete their works. Media uploads, thumbnails, videos, external file
+storage, tags, collaborators, likes, comments, awards, and drafts are not
+implemented.
+
 Production uses the same required database environment variables with the `prod` profile. API documentation is disabled in that profile:
 
 ```bash
@@ -582,7 +692,7 @@ com.aksiyoncuk
 ├── user             Registration and user persistence
 ├── profile          Private/public profile API and persistence
 ├── post             Posts and post comments
-├── work             Portfolio work feature (future)
+├── work             Portfolio work API and persistence
 └── job              Job feature (future)
 ```
 

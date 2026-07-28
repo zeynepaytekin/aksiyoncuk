@@ -7,6 +7,7 @@ import com.aksiyoncuk.post.comment.exception.CommentException;
 import com.aksiyoncuk.post.exception.PostException;
 import com.aksiyoncuk.profile.exception.ProfileException;
 import com.aksiyoncuk.user.exception.RegistrationConflictException;
+import com.aksiyoncuk.work.exception.WorkException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
@@ -124,6 +125,13 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(CommentException.class)
   ResponseEntity<ApiErrorResponse> handleCommentException(
       CommentException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(WorkException.class)
+  ResponseEntity<ApiErrorResponse> handleWorkException(
+      WorkException exception, HttpServletRequest request) {
     return error(
         exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
   }
