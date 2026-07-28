@@ -273,8 +273,87 @@ Every successful refresh revokes the submitted token and creates a replacement.
 Reusing a rotated token revokes all remaining active refresh tokens for that
 user. Logout is idempotent and does not reveal whether a token existed.
 
-The frontend still uses its mock adapter. It is not connected to these
-authentication endpoints yet.
+The frontend authentication adapter is connected to these endpoints.
+
+## Profiles
+
+Profile endpoints:
+
+| Method and path | Authentication | Response visibility |
+| --- | --- | --- |
+| `GET /api/v1/profiles/me` | Bearer access token | Private; includes email |
+| `PATCH /api/v1/profiles/me` | Bearer access token | Private; includes email |
+| `GET /api/v1/profiles/{username}` | Public | Public; never includes email |
+
+PATCH accepts `fullName`, `professionalTitle`, `bio`, `location`, and
+`websiteUrl`. An omitted field remains unchanged. Explicit `null`, an empty
+string, or whitespace clears nullable profile fields. `fullName` cannot be null
+or blank. All supplied text is trimmed.
+
+Limits are 100 characters for full name, 120 for professional title and
+location, 2,000 for biography, and 500 for website URL. A nonblank website URL
+must be an absolute HTTP or HTTPS URL. Email, username, and unknown fields are
+rejected.
+
+Example private response:
+
+```json
+{
+  "id": "e3d9bdd3-5b73-4ec3-b12a-d70e79244f6b",
+  "user": {
+    "id": "79ff9da2-80ce-4421-9a0e-af71310c782e",
+    "email": "user@example.com",
+    "username": "creativeuser",
+    "fullName": "Creative User",
+    "status": "ACTIVE",
+    "createdAt": "2026-01-01T12:00:00Z"
+  },
+  "professionalTitle": "Director",
+  "bio": null,
+  "location": "Bucharest",
+  "websiteUrl": "https://example.com",
+  "createdAt": "2026-01-01T12:00:00Z",
+  "updatedAt": "2026-01-01T12:05:00Z"
+}
+```
+
+curl examples:
+
+```bash
+curl http://localhost:8080/api/v1/profiles/me \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+
+curl -X PATCH http://localhost:8080/api/v1/profiles/me \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Creative Person","professionalTitle":"Director","bio":null,"websiteUrl":"https://example.com"}'
+
+curl http://localhost:8080/api/v1/profiles/creativeuser
+```
+
+PowerShell examples:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($login.accessToken)" }
+Invoke-RestMethod -Uri http://localhost:8080/api/v1/profiles/me -Headers $headers
+
+$profile = Invoke-RestMethod -Method Patch `
+  -Uri http://localhost:8080/api/v1/profiles/me `
+  -Headers $headers `
+  -ContentType application/json `
+  -Body (@{
+    fullName = 'Creative Person'
+    professionalTitle = 'Director'
+    bio = $null
+    websiteUrl = 'https://example.com'
+  } | ConvertTo-Json)
+
+Invoke-RestMethod http://localhost:8080/api/v1/profiles/creativeuser
+```
+
+Unknown usernames return `404` with `PROFILE_NOT_FOUND`. Invalid URLs return
+`400` with `INVALID_PROFILE_URL`; invalid field values return
+`INVALID_PROFILE_UPDATE`.
 
 Production uses the same required database environment variables with the `prod` profile. API documentation is disabled in that profile:
 
@@ -284,7 +363,9 @@ mvn spring-boot:run -Dspring-boot.run.profiles=prod
 
 ## Tests
 
-Tests use an in-memory H2 database and do not require PostgreSQL:
+Integration tests use disposable PostgreSQL 17 Testcontainers instances and do
+not depend on the manually running development database. Docker must be
+available:
 
 ```bash
 mvn test
@@ -318,9 +399,9 @@ com.aksiyoncuk
 │   ├── config       Cross-cutting Spring configuration
 │   ├── exception    Global exception translation
 │   └── response     Shared API response models
-├── auth             Authentication feature (future)
-├── user             User feature (future)
-├── profile          Profile feature (future)
+├── auth             JWT authentication and refresh-token sessions
+├── user             Registration and user persistence
+├── profile          Private/public profile API and persistence
 ├── post             Post feature (future)
 ├── work             Portfolio work feature (future)
 └── job              Job feature (future)

@@ -3,6 +3,7 @@ package com.aksiyoncuk.common.exception;
 import com.aksiyoncuk.auth.exception.AuthException;
 import com.aksiyoncuk.common.response.ApiErrorResponse;
 import com.aksiyoncuk.common.response.FieldValidationError;
+import com.aksiyoncuk.profile.exception.ProfileException;
 import com.aksiyoncuk.user.exception.RegistrationConflictException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -101,6 +102,13 @@ public class GlobalExceptionHandler {
       AuthException exception, HttpServletRequest request) {
     return error(
         HttpStatus.UNAUTHORIZED, exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(ProfileException.class)
+  ResponseEntity<ApiErrorResponse> handleProfileException(
+      ProfileException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
   }
 
   @ExceptionHandler(Exception.class)

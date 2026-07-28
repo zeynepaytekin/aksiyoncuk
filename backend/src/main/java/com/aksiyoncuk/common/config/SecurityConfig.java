@@ -60,6 +60,12 @@ public class SecurityConfig {
                         "/swagger-ui/**",
                         "/swagger-ui.html")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/profiles/me")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.PATCH, "/api/v1/profiles/me")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/profiles/{username}")
+                    .permitAll()
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

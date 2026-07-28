@@ -10,6 +10,7 @@ backend/target/
 .env
 .env.*
 !.env.example
+!frontend/.env.example
 .env.local
 .idea/
 .vscode/

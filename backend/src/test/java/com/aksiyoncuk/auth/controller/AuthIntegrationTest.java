@@ -164,7 +164,7 @@ class AuthIntegrationTest {
   }
 
   @Test
-  void flywayAppliedAllThreeMigrations() {
+  void flywayAppliedAllMigrations() {
     var count =
         jdbcTemplate.queryForObject(
             "SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class);
@@ -172,8 +172,8 @@ class AuthIntegrationTest {
         jdbcTemplate.queryForObject(
             "SELECT max(version) FROM flyway_schema_history WHERE success", String.class);
 
-    assertThat(count).isEqualTo(3);
-    assertThat(version).isEqualTo("3");
+    assertThat(count).isEqualTo(4);
+    assertThat(version).isEqualTo("4");
   }
 
   private void register() throws Exception {

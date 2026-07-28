@@ -23,16 +23,16 @@ public class Profile {
   @JoinColumn(name = "user_id", nullable = false, unique = true)
   private User user;
 
-  @Column(name = "professional_title", length = 100)
+  @Column(name = "professional_title", length = 120)
   private String professionalTitle;
 
   @Column(length = 2000)
   private String bio;
 
-  @Column(length = 100)
+  @Column(length = 120)
   private String location;
 
-  @Column(name = "website_url", length = 2048)
+  @Column(name = "website_url", length = 500)
   private String websiteUrl;
 
   @Column(name = "created_at", nullable = false, updatable = false)
@@ -84,6 +84,22 @@ public class Profile {
 
   public String getWebsiteUrl() {
     return websiteUrl;
+  }
+
+  public void updateProfessionalTitle(String professionalTitle) {
+    this.professionalTitle = professionalTitle;
+  }
+
+  public void updateBio(String bio) {
+    this.bio = bio;
+  }
+
+  public void updateLocation(String location) {
+    this.location = location;
+  }
+
+  public void updateWebsiteUrl(String websiteUrl) {
+    this.websiteUrl = websiteUrl;
   }
 
   public Instant getCreatedAt() {

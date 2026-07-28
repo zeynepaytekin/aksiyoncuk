@@ -86,6 +86,10 @@ public class User {
     return fullName;
   }
 
+  public void updateFullName(String fullName) {
+    this.fullName = fullName;
+  }
+
   public UserStatus getStatus() {
     return status;
   }

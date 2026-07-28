@@ -1,0 +1,4 @@
+ALTER TABLE profiles
+  ALTER COLUMN professional_title TYPE VARCHAR(120),
+  ALTER COLUMN location TYPE VARCHAR(120),
+  ALTER COLUMN website_url TYPE VARCHAR(500);
