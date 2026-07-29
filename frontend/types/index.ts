@@ -78,3 +78,17 @@ export type {
   UserSearchParams,
   WorkSearchParams,
 } from "./search";
+export type {
+  Conversation,
+  ConversationPage,
+  ConversationUser,
+  LatestMessage,
+  Message,
+  MessagePage,
+  MessageSender,
+  MessagingStatus,
+  MessagingSummary,
+  PageMetadata,
+  SendMessageRequest,
+  StartConversationRequest,
+} from "./messaging";

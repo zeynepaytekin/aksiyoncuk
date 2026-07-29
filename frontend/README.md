@@ -54,5 +54,29 @@ Jobs now use the Spring Boot API rather than browser storage. Public users can
 browse `/jobs` and `/jobs/view?id=JOB_ID`. Authenticated owners can create,
 edit, close, reopen, and delete listings through the static-export-compatible
 query routes. Job drafts and API responses are not persisted in browser
-storage. Applications, saved jobs, messaging, attachments, and payments are
+storage. Applications, saved jobs, attachments, and payments are
 not implemented.
+
+## Direct messaging
+
+Authenticated users access one-to-one messaging at `/messages`. A selected
+conversation uses `/messages?conversation=CONVERSATION_ID`, a static-export
+compatible query route that needs no Next.js runtime server. Conversation
+pages preserve backend order. Message pages arrive newest-first but render
+chronologically; loading older messages prepends deduplicated records while
+preserving scroll position.
+
+Unread totals appear in the Navbar. Summary, conversation list, and open
+conversation polling run every 25, 12, and 6 seconds respectively. Polling
+pauses while the document is hidden and retains valid data on transient
+failure. Opening a conversation marks it read after content loads. Logout
+clears messaging state; conversations, messages, and drafts are never stored
+in browser storage.
+
+The responsive UI includes keyboard-operable conversation selection, a
+focus-managed New Message dialog, accessible unread labels, plain-text
+multiline messages, and IME-safe Enter-to-send behavior.
+
+Limitations: no WebSockets, groups, attachments, editing/deletion, reactions,
+typing indicators, presence, per-message read receipts, push notifications,
+voice messages, message search, or encryption.

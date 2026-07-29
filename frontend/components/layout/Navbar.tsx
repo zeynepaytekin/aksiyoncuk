@@ -8,6 +8,8 @@ import Button from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationsStore } from "@/store/notifications.store";
 import { useNotificationSummaryPolling } from "@/hooks/useNotificationSummaryPolling";
+import { useMessagingSummaryPolling } from "@/hooks/useMessagingPolling";
+import { useMessagingStore } from "@/store/messaging.store";
 
 export default function Navbar() {
   const router = useRouter();
@@ -20,6 +22,10 @@ export default function Navbar() {
     (state) => state.summary?.unreadCount ?? 0,
   );
   useNotificationSummaryPolling();
+  const unreadMessageCount = useMessagingStore(
+    (state) => state.summary?.unreadMessageCount ?? 0,
+  );
+  useMessagingSummaryPolling();
 
   function handleLogout() {
     setIsLoggingOut(true);
@@ -105,6 +111,21 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {user ? (
             <>
+              <Link
+                href="/messages"
+                aria-label={`Messages, ${unreadMessageCount} unread`}
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-black"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+                  <path d="M4 5h16v12H8l-4 3V5Z" />
+                </svg>
+                {unreadMessageCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-black px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                    {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                    <span className="sr-only"> unread messages</span>
+                  </span>
+                )}
+              </Link>
               <Link
                 href="/notifications"
                 aria-label={`Notifications, ${unreadCount} unread`}

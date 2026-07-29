@@ -15,6 +15,7 @@ import { jobApplicationsStateCoordinator } from "@/services/jobApplications/jobA
 import { networkStateCoordinator } from "@/services/network/networkStateCoordinator";
 import { notificationsStateCoordinator } from "@/services/notifications/notificationsStateCoordinator";
 import { searchStateCoordinator } from "@/services/search/searchStateCoordinator";
+import { messagingStateCoordinator } from "@/services/messaging/messagingStateCoordinator";
 import type {
   AuthResponse,
   AuthUser,
@@ -129,6 +130,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       networkStateCoordinator.authenticationChanged(true);
       notificationsStateCoordinator.authenticationChanged(true);
       searchStateCoordinator.authenticationChanged(true);
+      messagingStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -150,6 +152,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       networkStateCoordinator.authenticationChanged(true);
       notificationsStateCoordinator.authenticationChanged(true);
       searchStateCoordinator.authenticationChanged(true);
+      messagingStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -177,6 +180,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         networkStateCoordinator.authenticationChanged(true);
         notificationsStateCoordinator.authenticationChanged(true);
         searchStateCoordinator.authenticationChanged(true);
+        messagingStateCoordinator.authenticationChanged(true);
       }
     } catch (error) {
       get().clearSession();
@@ -207,6 +211,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     networkStateCoordinator.authenticationChanged(false);
     notificationsStateCoordinator.authenticationChanged(false);
     searchStateCoordinator.authenticationChanged(false);
+    messagingStateCoordinator.authenticationChanged(false);
     set(clearedState);
   },
 
