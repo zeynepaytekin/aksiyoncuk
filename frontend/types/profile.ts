@@ -25,6 +25,8 @@ export type CurrentProfile = {
   followerCount: number;
   followingCount: number;
   followedByCurrentUser: boolean;
+  avatarUrl?: string | null;
+  coverUrl?: string | null;
 };
 
 export type PublicProfile = {
@@ -42,6 +44,8 @@ export type PublicProfile = {
   followerCount: number;
   followingCount: number;
   followedByCurrentUser: boolean;
+  avatarUrl?: string | null;
+  coverUrl?: string | null;
 };
 
 export type ProfilePatchValue = string | null | undefined;

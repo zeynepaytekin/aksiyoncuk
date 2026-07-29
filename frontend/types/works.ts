@@ -30,6 +30,7 @@ export type Work = {
   updatedAt: string;
   owner: WorkOwner;
   ownedByCurrentUser: boolean;
+  media?: MediaListItem[];
 };
 
 export type WorkPage = {
@@ -64,3 +65,4 @@ export type WorkPaginationParams = {
 };
 
 export type WorkPageMetadata = Omit<WorkPage, "content">;
+import type { MediaListItem } from "./media";

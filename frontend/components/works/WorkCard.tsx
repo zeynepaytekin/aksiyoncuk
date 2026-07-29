@@ -11,6 +11,11 @@ import { getWorkErrorMessage } from "@/services/api/workErrorMessage";
 import { useWorksStore } from "@/store/works.store";
 import type { Work } from "@/types/works";
 import { formatUtcDate } from "@/utils/formatDate";
+import MediaGallery from "@/components/media/MediaGallery";
+import { mediaService } from "@/services/api/media.service";
+import { worksService } from "@/services/api/works.service";
+import { getMediaErrorMessage } from "@/services/api/mediaErrorMessage";
+import ExistingMediaUpload from "@/components/media/ExistingMediaUpload";
 
 type Props = {
   work: Work;
@@ -19,13 +24,17 @@ type Props = {
 
 export default function WorkCard({ work, ownerControls = false }: Props) {
   const [confirming, setConfirming] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaError, setMediaError] = useState("");
   const deleteWork = useWorksStore((state) => state.deleteWork);
+  const syncWork = useWorksStore((state) => state.syncWork);
   const status = useWorksStore(
     (state) => state.deleteStatusById[work.id] ?? "idle",
   );
   const error = useWorksStore(
     (state) => state.deleteErrorById[work.id] ?? null,
   );
+  const media = work.media ?? [];
 
   async function handleDelete() {
     try {
@@ -39,7 +48,10 @@ export default function WorkCard({ work, ownerControls = false }: Props) {
   const canManage = ownerControls && work.ownedByCurrentUser;
   return (
     <article className="rounded-xl border border-gray-200 p-4">
-      <div className="mb-3 h-36 rounded-xl bg-gray-200" aria-hidden="true" />
+      {media.length ? (
+        <MediaGallery media={[...media].sort((a, b) => a.displayOrder - b.displayOrder).slice(0, 1)}
+          alt={work.title} compact />
+      ) : <div className="mb-3 h-36 rounded-xl bg-gray-200" aria-hidden="true" />}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">{work.title}</h3>
@@ -80,6 +92,35 @@ export default function WorkCard({ work, ownerControls = false }: Props) {
         >
           Open project website
         </a>
+      )}
+      {media.length > 1 && <MediaGallery media={media.slice(1)} alt={work.title} compact />}
+      {canManage && media.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Manage work images">
+          {media.map((item, index) => (
+            <span key={item.id} className="flex gap-1">
+              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy || index === 0}
+                aria-label="Move image left" onClick={() => void changeOrder(index, -1)}>←</Button>
+              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy || index === media.length - 1}
+                aria-label="Move image right" onClick={() => void changeOrder(index, 1)}>→</Button>
+              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy}
+                aria-label={`Delete image ${index + 1}`} onClick={() => {
+                  if (!window.confirm("Delete this image?")) return;
+                  void (async () => { setMediaBusy(true); setMediaError("");
+                    try { await mediaService.deleteWorkImage(work.id, item.id); syncWork(await worksService.getById(work.id)); }
+                    catch (reason) { setMediaError(getMediaErrorMessage(reason)); } finally { setMediaBusy(false); }
+                  })();
+                }}>Delete image</Button>
+            </span>
+          ))}
+        </div>
+      )}
+      {mediaError && <div role="alert"><FormError message={mediaError} /></div>}
+      {canManage && (
+        <ExistingMediaUpload purpose="work" remaining={12 - media.length}
+          upload={async (file) => {
+            await mediaService.uploadWorkImage(work.id, file);
+            syncWork(await worksService.getById(work.id));
+          }} />
       )}
       <div className="mt-3 flex items-center justify-between gap-3">
         <time className="text-xs text-gray-400" dateTime={work.createdAt}>
@@ -131,4 +172,13 @@ export default function WorkCard({ work, ownerControls = false }: Props) {
       </Modal>
     </article>
   );
+
+  async function changeOrder(index: number, delta: number) {
+    const ids = media.map(({ id }) => id);
+    [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
+    setMediaBusy(true); setMediaError("");
+    try { await mediaService.reorderWorkImages(work.id, ids); syncWork(await worksService.getById(work.id)); }
+    catch (reason) { setMediaError(getMediaErrorMessage(reason)); }
+    finally { setMediaBusy(false); }
+  }
 }

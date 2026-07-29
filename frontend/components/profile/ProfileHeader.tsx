@@ -43,11 +43,17 @@ export default function ProfileHeader({
 
   return (
     <Card padding="none" className="overflow-hidden">
-      <div className="h-40 bg-black" />
+      <div className="h-40 bg-black">
+        {profile.coverUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={profile.coverUrl} alt={`${user.fullName}'s cover`} className="h-full w-full object-cover" />
+        )}
+      </div>
       <div className="px-6 pb-6">
         <div className="-mt-14 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex items-end gap-4">
-            <Avatar size="xl" className="border-4 border-white" />
+            <Avatar src={profile.avatarUrl ?? undefined} alt={`${user.fullName}'s profile photo`}
+              fallback={user.fullName.slice(0, 1).toUpperCase()} size="xl" className="border-4 border-white" />
             <div className="pb-2">
               <h1 className="text-3xl font-bold text-gray-900">
                 {user.fullName}

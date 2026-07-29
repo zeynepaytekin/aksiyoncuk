@@ -92,3 +92,12 @@ export type {
   SendMessageRequest,
   StartConversationRequest,
 } from "./messaging";
+export type {
+  MediaAsset,
+  MediaListItem,
+  MediaOrderRequest,
+  MediaUploadPurpose,
+  MediaUsageType,
+  SelectedImageFile,
+  UploadValidationResult,
+} from "./media";

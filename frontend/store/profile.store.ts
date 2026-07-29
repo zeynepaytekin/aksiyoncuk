@@ -22,7 +22,7 @@ type ProfileState = {
   publicProfiles: Record<string, PublicProfile>;
   publicProfileStatuses: Record<string, ProfileStatus>;
   publicProfileErrors: Record<string, ApiError | null>;
-  loadCurrentProfile: () => Promise<CurrentProfile>;
+  loadCurrentProfile: (options?: { force?: boolean }) => Promise<CurrentProfile>;
   updateCurrentProfile: (
     request: UpdateProfileRequest,
   ) => Promise<CurrentProfile>;
@@ -53,8 +53,8 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   publicProfileStatuses: {},
   publicProfileErrors: {},
 
-  loadCurrentProfile() {
-    if (get().currentProfileStatus === "loaded" && get().currentProfile) {
+  loadCurrentProfile(options) {
+    if (!options?.force && get().currentProfileStatus === "loaded" && get().currentProfile) {
       return Promise.resolve(get().currentProfile!);
     }
     if (currentRequest) return currentRequest;

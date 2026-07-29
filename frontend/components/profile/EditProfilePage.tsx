@@ -13,6 +13,7 @@ import FormField from "@/components/ui/FormField";
 import Input from "@/components/ui/Input";
 import Skeleton from "@/components/ui/Skeleton";
 import TextArea from "@/components/ui/TextArea";
+import ProfileMediaEditors from "@/components/media/ProfileMediaEditors";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { ApiError } from "@/services/api/apiClient";
 import { useProfileStore } from "@/store/profile.store";
@@ -152,6 +153,7 @@ export default function EditProfilePage() {
         {profile && (
           <Card padding="lg">
             <h1 className="mb-6 text-2xl font-bold">Edit Profile</h1>
+            <ProfileMediaEditors profile={profile} />
             <form onSubmit={handleSubmit} className="space-y-5">
               <FormField label="Full Name" htmlFor="profile-full-name">
                 <Input

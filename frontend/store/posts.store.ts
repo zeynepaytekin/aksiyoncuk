@@ -35,6 +35,7 @@ type PostsState = {
   loadGlobalPosts: (params?: PostPaginationParams) => Promise<void>;
   loadMyPosts: (params?: PostPaginationParams) => Promise<void>;
   createPost: (content: string) => Promise<Post>;
+  syncPost: (post: Post) => void;
   deletePost: (postId: string) => Promise<void>;
   likePost: (postId: string) => Promise<void>;
   unlikePost: (postId: string) => Promise<void>;
@@ -242,6 +243,12 @@ export const usePostsStore = create<PostsState>()((set, get) => ({
       set({ createStatus: "error", createError: apiError });
       throw apiError;
     }
+  },
+  syncPost(post) {
+    set((state) => ({
+      globalPosts: state.globalPosts.map((item) => item.id === post.id ? post : item),
+      myPosts: state.myPosts.map((item) => item.id === post.id ? post : item),
+    }));
   },
 
   async deletePost(postId) {

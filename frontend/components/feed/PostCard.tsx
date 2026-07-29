@@ -14,6 +14,11 @@ import { useAuthStore } from "@/store/auth.store";
 import { usePostsStore } from "@/store/posts.store";
 import type { Post } from "@/types/feed";
 import { formatUtcDate } from "@/utils/formatDate";
+import MediaGallery from "@/components/media/MediaGallery";
+import { mediaService } from "@/services/api/media.service";
+import { postsService } from "@/services/api/posts.service";
+import { getMediaErrorMessage } from "@/services/api/mediaErrorMessage";
+import ExistingMediaUpload from "@/components/media/ExistingMediaUpload";
 
 type PostCardProps = {
   post: Post;
@@ -24,8 +29,11 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
   const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaError, setMediaError] = useState("");
   const commentsRegionId = useId();
   const deletePost = usePostsStore((state) => state.deletePost);
+  const syncPost = usePostsStore((state) => state.syncPost);
   const user = useAuthStore((state) => state.user);
   const toggleLike = usePostsStore((state) => state.toggleLike);
   const clearLikeError = usePostsStore((state) => state.clearLikeError);
@@ -42,6 +50,7 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
   const deleteStatus = usePostsStore(
     (state) => state.deleteStatusById[post.id] ?? "idle",
   );
+  const media = post.media ?? [];
 
   async function handleDelete() {
     setDeleteMessage("");
@@ -97,6 +106,47 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
       <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
         {post.content}
       </p>
+      <MediaGallery media={media} alt={`Post by ${post.author.fullName}`} compact={compact} />
+      {post.ownedByCurrentUser && media.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2" aria-label="Manage post images">
+          {media.map((item, index) => (
+            <span key={item.id} className="flex gap-1">
+              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy || index === 0}
+                aria-label="Move image left" onClick={() => void (async () => {
+                  const ids = media.map(({ id }) => id);
+                  [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
+                  setMediaBusy(true); setMediaError("");
+                  try { await mediaService.reorderPostImages(post.id, ids); syncPost(await postsService.getById(post.id)); }
+                  catch (error) { setMediaError(getMediaErrorMessage(error)); } finally { setMediaBusy(false); }
+                })()}>←</Button>
+              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy || index === media.length - 1}
+                aria-label="Move image right" onClick={() => void (async () => {
+                  const ids = media.map(({ id }) => id);
+                  [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
+                  setMediaBusy(true); setMediaError("");
+                  try { await mediaService.reorderPostImages(post.id, ids); syncPost(await postsService.getById(post.id)); }
+                  catch (error) { setMediaError(getMediaErrorMessage(error)); } finally { setMediaBusy(false); }
+                })()}>→</Button>
+              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy}
+                aria-label={`Delete image ${index + 1}`} onClick={() => {
+                  if (!window.confirm("Delete this image?")) return;
+                  void (async () => { setMediaBusy(true); setMediaError("");
+                    try { await mediaService.deletePostImage(post.id, item.id); syncPost(await postsService.getById(post.id)); }
+                    catch (error) { setMediaError(getMediaErrorMessage(error)); } finally { setMediaBusy(false); }
+                  })();
+                }}>Delete image</Button>
+            </span>
+          ))}
+        </div>
+      )}
+      {mediaError && <div role="alert"><FormError message={mediaError} /></div>}
+      {post.ownedByCurrentUser && (
+        <ExistingMediaUpload purpose="post" remaining={4 - media.length}
+          upload={async (file) => {
+            await mediaService.uploadPostImage(post.id, file);
+            syncPost(await postsService.getById(post.id));
+          }} />
+      )}
 
       <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
         {user ? (

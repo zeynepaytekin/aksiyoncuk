@@ -40,6 +40,7 @@ type WorksState = {
     params?: WorkPaginationParams,
   ) => Promise<void>;
   createWork: (request: CreateWorkRequest) => Promise<Work>;
+  syncWork: (work: Work) => void;
   updateWork: (workId: string, request: UpdateWorkRequest) => Promise<Work>;
   deleteWork: (workId: string) => Promise<void>;
   clearMyWorks: () => void;
@@ -235,6 +236,17 @@ export const useWorksStore = create<WorksState>()((set, get) => ({
       set({ createStatus: "error", createError: mapped });
       throw mapped;
     }
+  },
+  syncWork(work) {
+    set((state) => ({
+      myWorks: replace(state.myWorks, work),
+      publicWorksByUsername: Object.fromEntries(
+        Object.entries(state.publicWorksByUsername).map(([username, works]) => [
+          username,
+          replace(works, work),
+        ]),
+      ),
+    }));
   },
 
   async updateWork(workId, request) {

@@ -15,6 +15,7 @@ export interface Post {
   commentCount: number;
   likeCount: number;
   likedByCurrentUser: boolean;
+  media?: MediaListItem[];
 }
 
 export interface PostLikeResponse {
@@ -43,3 +44,4 @@ export interface PostPaginationParams {
 }
 
 export type PostPageMetadata = Omit<PostPage, "content">;
+import type { MediaListItem } from "./media";

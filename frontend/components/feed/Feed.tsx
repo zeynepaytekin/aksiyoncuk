@@ -11,7 +11,10 @@ import EmptyState from "@/components/ui/EmptyState";
 import FormError from "@/components/ui/FormError";
 import Skeleton from "@/components/ui/Skeleton";
 import TextArea from "@/components/ui/TextArea";
+import ImageFilePicker from "@/components/media/ImageFilePicker";
 import { getPostErrorMessage } from "@/services/api/postErrorMessage";
+import { mediaService } from "@/services/api/media.service";
+import { postsService } from "@/services/api/posts.service";
 import { useAuthStore } from "@/store/auth.store";
 import { usePostsStore } from "@/store/posts.store";
 
@@ -25,7 +28,12 @@ export default function Feed() {
   const createError = usePostsStore((state) => state.createError);
   const loadPosts = usePostsStore((state) => state.loadGlobalPosts);
   const createPost = usePostsStore((state) => state.createPost);
+  const syncPost = usePostsStore((state) => state.syncPost);
   const [newPost, setNewPost] = useState("");
+  const [images, setImages] = useState<File[]>([]);
+  const [mediaMessage, setMediaMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [failedPostId, setFailedPostId] = useState("");
 
   useEffect(() => {
     if (status === "idle") {
@@ -35,13 +43,47 @@ export default function Feed() {
 
   async function handlePost() {
     const content = newPost.trim();
-    if (!content || createStatus === "loading") return;
+    if (!content || createStatus === "loading" || uploading) return;
     try {
-      await createPost(content);
+      const post = await createPost(content);
       setNewPost("");
+      if (images.length) {
+        setUploading(true);
+        const failed: File[] = [];
+        for (const image of images) {
+          try { await mediaService.uploadPostImage(post.id, image); }
+          catch { failed.push(image); }
+        }
+        const authoritative = await postsService.getById(post.id);
+        syncPost(authoritative);
+        setImages(failed);
+        setFailedPostId(failed.length ? post.id : "");
+        setMediaMessage(failed.length
+          ? `Post created. ${images.length - failed.length} image(s) uploaded; ${failed.length} failed and can be retried.`
+          : "Post and images shared.");
+      } else {
+        setImages([]);
+      }
     } catch {
       // The store retains the typed error and the composer retains the draft.
+    } finally {
+      setUploading(false);
     }
+  }
+
+  async function retryImages() {
+    if (!failedPostId || !images.length || uploading) return;
+    setUploading(true);
+    const failed: File[] = [];
+    for (const image of images) {
+      try { await mediaService.uploadPostImage(failedPostId, image); }
+      catch { failed.push(image); }
+    }
+    syncPost(await postsService.getById(failedPostId));
+    setImages(failed);
+    setMediaMessage(failed.length ? `${failed.length} image(s) still failed.` : "All images uploaded.");
+    if (!failed.length) setFailedPostId("");
+    setUploading(false);
   }
 
   return (
@@ -54,18 +96,22 @@ export default function Feed() {
             placeholder="Post something..."
             variant="composer"
             maxLength={3000}
-            disabled={createStatus === "loading"}
+            disabled={createStatus === "loading" || uploading}
             aria-label="Post content"
           />
+          <div className="my-3">
+            <ImageFilePicker purpose="post" maximum={4} files={images}
+              onChange={setImages} disabled={createStatus === "loading" || uploading} />
+          </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-xs text-gray-500">
               {newPost.length}/3000
             </span>
             <Button
               onClick={() => void handlePost()}
-              disabled={!newPost.trim()}
-              isLoading={createStatus === "loading"}
-              loadingText="Posting..."
+              disabled={!newPost.trim() || uploading}
+              isLoading={createStatus === "loading" || uploading}
+              loadingText={uploading ? "Uploading images..." : "Posting..."}
             >
               Share Post
             </Button>
@@ -74,6 +120,13 @@ export default function Feed() {
             <div className="mt-3">
               <FormError message={getPostErrorMessage(createError)} />
             </div>
+          )}
+          {mediaMessage && <p role="status" aria-live="polite" className="mt-3 text-sm text-gray-600">{mediaMessage}</p>}
+          {failedPostId && images.length > 0 && (
+            <Button type="button" variant="secondary" size="sm" className="mt-2"
+              isLoading={uploading} onClick={() => void retryImages()}>
+              Retry failed images
+            </Button>
           )}
         </Card>
       ) : (

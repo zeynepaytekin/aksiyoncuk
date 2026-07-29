@@ -80,3 +80,28 @@ multiline messages, and IME-safe Enter-to-send behavior.
 Limitations: no WebSockets, groups, attachments, editing/deletion, reactions,
 typing indicators, presence, per-message read receipts, push notifications,
 voice messages, message search, or encryption.
+# Media uploads
+
+The browser integrates directly with the Spring Boot multipart API through the
+existing authenticated API client; static export remains enabled and no Next.js
+upload proxy is required. Profile avatar and cover replacement/deletion, up to
+four post images, and up to twelve work images are supported. Uploads use the
+`file` multipart part and the browser supplies the multipart boundary.
+
+JPEG, PNG, and WebP are accepted. Limits are 5 MB for avatars, 10 MB for covers
+and post images, and 15 MB for work images. Selected files and preview Object
+URLs remain component-local. Object URLs are revoked when selection changes or
+the picker unmounts, and neither files nor upload state are persisted.
+
+Posts and works are created before their images are uploaded. A failed image
+does not remove the successfully created parent or already uploaded images;
+failed selections remain available for retry where the editor stays open.
+Existing media is rendered in backend display order, and owners can add,
+delete, or move images with labeled controls.
+
+Media URLs are public. Uploaded files may retain EXIF/GPS metadata, so users
+should remove sensitive metadata before upload when necessary. The UI does not
+claim malware scanning. Current exclusions include video, cropping,
+transformations, streaming, direct-to-storage uploads, private signed URLs, and
+numeric upload progress (the current fetch transport uses an accessible
+indeterminate state).

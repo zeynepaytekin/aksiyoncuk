@@ -92,7 +92,10 @@ export async function apiRequest<T>(
     accessToken ?? (authenticated ? sessionCoordinator.getAccessToken() : null);
   const requestHeaders = new Headers(headers);
   requestHeaders.set("Accept", "application/json");
-  if (body !== undefined) requestHeaders.set("Content-Type", "application/json");
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  if (body !== undefined && !isFormData) {
+    requestHeaders.set("Content-Type", "application/json");
+  }
   if (token) requestHeaders.set("Authorization", `Bearer ${token}`);
 
   let response: Response;
@@ -100,7 +103,12 @@ export async function apiRequest<T>(
     response = await fetch(`${getApiBaseUrl()}${path}`, {
       ...requestInit,
       headers: requestHeaders,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? body
+            : JSON.stringify(body),
     });
   } catch (cause) {
     throw new ApiError(
