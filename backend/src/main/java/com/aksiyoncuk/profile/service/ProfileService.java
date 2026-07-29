@@ -1,6 +1,7 @@
 package com.aksiyoncuk.profile.service;
 
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
+import com.aksiyoncuk.media.service.MediaService;
 import com.aksiyoncuk.network.repository.UserFollowRepository;
 import com.aksiyoncuk.profile.dto.CurrentProfileResponse;
 import com.aksiyoncuk.profile.dto.PatchField;
@@ -14,6 +15,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,11 +26,21 @@ public class ProfileService {
 
   private final ProfileRepository profileRepository;
   private final UserFollowRepository followRepository;
+  private final MediaService mediaService;
 
   public ProfileService(
       ProfileRepository profileRepository, UserFollowRepository followRepository) {
+    this(profileRepository, followRepository, null);
+  }
+
+  @Autowired
+  public ProfileService(
+      ProfileRepository profileRepository,
+      UserFollowRepository followRepository,
+      MediaService mediaService) {
     this.profileRepository = profileRepository;
     this.followRepository = followRepository;
+    this.mediaService = mediaService;
   }
 
   @Transactional(readOnly = true)
@@ -72,12 +84,13 @@ public class ProfileService {
         profileRepository.findByUserUsername(normalized).orElseThrow(ProfileNotFoundException::new);
     var userId = profile.getUser().getId();
     return PublicProfileResponse.from(
-        profile,
-        followRepository.countByFollowedId(userId),
-        followRepository.countByFollowerId(userId),
-        principal != null
-            && !principal.userId().equals(userId)
-            && followRepository.existsByFollowerIdAndFollowedId(principal.userId(), userId));
+            profile,
+            followRepository.countByFollowedId(userId),
+            followRepository.countByFollowerId(userId),
+            principal != null
+                && !principal.userId().equals(userId)
+                && followRepository.existsByFollowerIdAndFollowedId(principal.userId(), userId))
+        .withMedia(url(profile.getAvatarMedia()), url(profile.getCoverMedia()));
   }
 
   public String normalizeUsername(String username) {
@@ -95,9 +108,14 @@ public class ProfileService {
   private CurrentProfileResponse currentResponse(com.aksiyoncuk.profile.entity.Profile profile) {
     var userId = profile.getUser().getId();
     return CurrentProfileResponse.from(
-        profile,
-        followRepository.countByFollowedId(userId),
-        followRepository.countByFollowerId(userId));
+            profile,
+            followRepository.countByFollowedId(userId),
+            followRepository.countByFollowerId(userId))
+        .withMedia(url(profile.getAvatarMedia()), url(profile.getCoverMedia()));
+  }
+
+  private String url(com.aksiyoncuk.media.entity.MediaAsset asset) {
+    return mediaService == null ? null : mediaService.publicUrl(asset);
   }
 
   private String requiredFullName(PatchField field) {

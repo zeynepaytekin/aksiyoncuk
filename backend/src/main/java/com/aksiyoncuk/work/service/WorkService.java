@@ -2,6 +2,7 @@ package com.aksiyoncuk.work.service;
 
 import com.aksiyoncuk.auth.exception.AuthException;
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
+import com.aksiyoncuk.media.service.MediaService;
 import com.aksiyoncuk.profile.exception.ProfileNotFoundException;
 import com.aksiyoncuk.profile.repository.ProfileRepository;
 import com.aksiyoncuk.user.repository.UserRepository;
@@ -24,6 +25,7 @@ import java.time.Year;
 import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -39,14 +41,25 @@ public class WorkService {
   private final WorkRepository workRepository;
   private final UserRepository userRepository;
   private final ProfileRepository profileRepository;
+  private final MediaService mediaService;
 
   public WorkService(
       WorkRepository workRepository,
       UserRepository userRepository,
       ProfileRepository profileRepository) {
+    this(workRepository, userRepository, profileRepository, null);
+  }
+
+  @Autowired
+  public WorkService(
+      WorkRepository workRepository,
+      UserRepository userRepository,
+      ProfileRepository profileRepository,
+      MediaService mediaService) {
     this.workRepository = workRepository;
     this.userRepository = userRepository;
     this.profileRepository = profileRepository;
+    this.mediaService = mediaService;
   }
 
   @Transactional
@@ -117,7 +130,7 @@ public class WorkService {
   public WorkResponse find(UUID workId, AuthenticatedUser principal) {
     return workRepository
         .findProjectedById(workId)
-        .map(row -> WorkResponse.from(row, userId(principal)))
+        .map(row -> withMedia(WorkResponse.from(row, userId(principal))))
         .orElseThrow(WorkNotFoundException::new);
   }
 
@@ -142,7 +155,7 @@ public class WorkService {
     workRepository.flush();
     return workRepository
         .findProjectedById(workId)
-        .map(row -> WorkResponse.from(row, principal.userId()))
+        .map(row -> withMedia(WorkResponse.from(row, principal.userId())))
         .orElseThrow(WorkNotFoundException::new);
   }
 
@@ -152,6 +165,7 @@ public class WorkService {
     if (!work.getOwner().getId().equals(principal.userId())) {
       throw new WorkDeleteForbiddenException();
     }
+    if (mediaService != null) mediaService.removeWorkMedia(workId);
     workRepository.delete(work);
   }
 
@@ -235,13 +249,21 @@ public class WorkService {
 
   private WorkPageResponse response(Page<WorkRow> rows, UUID currentUserId) {
     return new WorkPageResponse(
-        rows.getContent().stream().map(row -> WorkResponse.from(row, currentUserId)).toList(),
+        rows.getContent().stream()
+            .map(row -> withMedia(WorkResponse.from(row, currentUserId)))
+            .toList(),
         rows.getNumber(),
         rows.getSize(),
         rows.getTotalElements(),
         rows.getTotalPages(),
         rows.isFirst(),
         rows.isLast());
+  }
+
+  private WorkResponse withMedia(WorkResponse response) {
+    return mediaService == null
+        ? response
+        : response.withMedia(mediaService.workItems(response.id()));
   }
 
   private UUID userId(AuthenticatedUser principal) {

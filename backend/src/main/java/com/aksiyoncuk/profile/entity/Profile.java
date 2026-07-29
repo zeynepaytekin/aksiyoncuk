@@ -1,5 +1,6 @@
 package com.aksiyoncuk.profile.entity;
 
+import com.aksiyoncuk.media.entity.MediaAsset;
 import com.aksiyoncuk.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -34,6 +35,14 @@ public class Profile {
 
   @Column(name = "website_url", length = 500)
   private String websiteUrl;
+
+  @OneToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "avatar_media_id")
+  private MediaAsset avatarMedia;
+
+  @OneToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "cover_media_id")
+  private MediaAsset coverMedia;
 
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
@@ -100,6 +109,22 @@ public class Profile {
 
   public void updateWebsiteUrl(String websiteUrl) {
     this.websiteUrl = websiteUrl;
+  }
+
+  public MediaAsset getAvatarMedia() {
+    return avatarMedia;
+  }
+
+  public MediaAsset getCoverMedia() {
+    return coverMedia;
+  }
+
+  public void replaceAvatar(MediaAsset media) {
+    avatarMedia = media;
+  }
+
+  public void replaceCover(MediaAsset media) {
+    coverMedia = media;
   }
 
   public Instant getCreatedAt() {

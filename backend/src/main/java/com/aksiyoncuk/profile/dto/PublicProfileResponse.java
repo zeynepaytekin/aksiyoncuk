@@ -19,7 +19,9 @@ public record PublicProfileResponse(
     Instant updatedAt,
     long followerCount,
     long followingCount,
-    boolean followedByCurrentUser) {
+    boolean followedByCurrentUser,
+    String avatarUrl,
+    String coverUrl) {
 
   public static PublicProfileResponse from(
       Profile profile, long followerCount, long followingCount, boolean followedByCurrentUser) {
@@ -38,6 +40,28 @@ public record PublicProfileResponse(
         profile.getUpdatedAt(),
         followerCount,
         followingCount,
-        followedByCurrentUser);
+        followedByCurrentUser,
+        null,
+        null);
+  }
+
+  public PublicProfileResponse withMedia(String avatarUrl, String coverUrl) {
+    return new PublicProfileResponse(
+        id,
+        userId,
+        username,
+        fullName,
+        status,
+        professionalTitle,
+        bio,
+        location,
+        websiteUrl,
+        createdAt,
+        updatedAt,
+        followerCount,
+        followingCount,
+        followedByCurrentUser,
+        avatarUrl,
+        coverUrl);
   }
 }

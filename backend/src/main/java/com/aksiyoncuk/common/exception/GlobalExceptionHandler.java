@@ -5,6 +5,7 @@ import com.aksiyoncuk.common.response.ApiErrorResponse;
 import com.aksiyoncuk.common.response.FieldValidationError;
 import com.aksiyoncuk.job.application.exception.JobApplicationException;
 import com.aksiyoncuk.job.exception.JobException;
+import com.aksiyoncuk.media.exception.MediaException;
 import com.aksiyoncuk.messaging.exception.MessagingException;
 import com.aksiyoncuk.network.exception.NetworkException;
 import com.aksiyoncuk.notification.exception.NotificationException;
@@ -28,6 +29,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -175,6 +178,35 @@ public class GlobalExceptionHandler {
       MessagingException exception, HttpServletRequest request) {
     return error(
         exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(MediaException.class)
+  ResponseEntity<ApiErrorResponse> handleMediaException(
+      MediaException exception, HttpServletRequest request) {
+    return error(
+        exception.getStatus(), exception.getCode(), exception.getMessage(), request, List.of());
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  ResponseEntity<ApiErrorResponse> handleMaximumUpload(
+      MaxUploadSizeExceededException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.PAYLOAD_TOO_LARGE,
+        "MEDIA_FILE_TOO_LARGE",
+        "File exceeds the maximum request size",
+        request,
+        List.of());
+  }
+
+  @ExceptionHandler(MissingServletRequestPartException.class)
+  ResponseEntity<ApiErrorResponse> handleMissingPart(
+      MissingServletRequestPartException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.BAD_REQUEST,
+        "MEDIA_FILE_REQUIRED",
+        "Multipart file field 'file' is required",
+        request,
+        List.of());
   }
 
   @ExceptionHandler(SearchException.class)

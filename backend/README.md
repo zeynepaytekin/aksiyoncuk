@@ -1171,3 +1171,63 @@ names, and professional titles only. Deleted senders remain represented safely a
 Group chat, attachments, editing, deletion, encryption, WebSockets, typing/online state, and
 push notifications are not implemented. Messaging unread totals are independent of the polling
 notification table.
+# Media upload foundation
+
+Aksiyoncuk stores image metadata and ownership in PostgreSQL and binary bytes in an
+S3-compatible object store. Local development uses MinIO from the root
+`compose.yaml`; production can use AWS S3, Cloudflare R2, or another compatible
+service through the same `MediaStorage` abstraction.
+
+Set `MEDIA_STORAGE_ENDPOINT`, `MEDIA_STORAGE_REGION`,
+`MEDIA_STORAGE_ACCESS_KEY`, `MEDIA_STORAGE_SECRET_KEY`,
+`MEDIA_STORAGE_BUCKET`, `MEDIA_PUBLIC_BASE_URL`, and
+`MEDIA_PATH_STYLE_ACCESS`. `docker compose up -d` starts PostgreSQL and MinIO;
+the one-shot `minio-init` service safely creates the bucket if missing and
+enables public downloads without deleting existing objects. The MinIO API and
+console default to ports 9000 and 9001.
+
+The initial access model is public-read media with authenticated, owner-only
+mutation. API responses expose public URLs and never storage keys, bucket names,
+or credentials. Supported files are signature-verified JPEG, PNG, and WebP.
+SVG, HTML, executables, empty files, and MIME/signature mismatches are rejected.
+Limits are 5 MB for avatars, 10 MB for covers and post images, and 15 MB for
+work images. Posts support four images and works support twelve.
+
+Endpoints:
+
+- `POST /api/v1/media/profile/avatar` and `/cover` replace profile media.
+- `DELETE /api/v1/media/profile/avatar` and `/cover` are idempotent.
+- `POST /api/v1/posts/{postId}/media` and `/works/{workId}/media` upload images.
+- `DELETE /api/v1/posts/{postId}/media/{mediaId}` and the equivalent work route
+  remove an image.
+- `PUT /api/v1/posts/{postId}/media/order` and the equivalent work route accept
+  `{"mediaIds":["uuid", "..."]}` containing the complete current set.
+
+Multipart uploads use the `file` field:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/media/profile/avatar \
+  -H "Authorization: Bearer $TOKEN" -F "file=@avatar.jpg;type=image/jpeg"
+```
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/media/profile/avatar" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -Form @{ file = Get-Item ".\avatar.jpg" }
+```
+
+Uploads validate before generating a date-partitioned UUID object key. The
+object is uploaded first, then metadata and its relation are committed. A
+database failure triggers best-effort object deletion. Replacement uploads the
+new object before atomically changing the profile reference. Removed assets are
+soft-deleted in PostgreSQL; object deletion runs after commit, and cleanup
+failure is logged without restoring a user-visible relation. Parent rows are
+pessimistically locked so concurrent uploads cannot bypass limits.
+
+Original bytes are preserved without recompression. EXIF metadata, including
+possible location information, is not removed yet. Production deployments
+should add antivirus/content scanning and an orphan-cleanup reconciliation job.
+Future video work should use a separate private ingest bucket, asynchronous
+scanning/transcoding jobs, rendition manifests, CDN delivery, and authorization
+appropriate for streaming; it should not overload this image upload path.

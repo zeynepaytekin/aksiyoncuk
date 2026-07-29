@@ -1,4 +1,8 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 16MB
   application:
     name: aksiyoncuk-backend
   autoconfigure:
@@ -38,6 +42,18 @@ app:
     access-secret: ${JWT_ACCESS_SECRET}
     access-expiration-seconds: ${JWT_ACCESS_EXPIRATION_SECONDS:900}
     refresh-expiration-seconds: ${JWT_REFRESH_EXPIRATION_SECONDS:2592000}
+  media:
+    endpoint: ${MEDIA_STORAGE_ENDPOINT:http://localhost:9000}
+    region: ${MEDIA_STORAGE_REGION:us-east-1}
+    access-key: ${MEDIA_STORAGE_ACCESS_KEY:test-only-access-key}
+    secret-key: ${MEDIA_STORAGE_SECRET_KEY:test-only-secret-key}
+    bucket: ${MEDIA_STORAGE_BUCKET:aksiyoncuk-media}
+    public-base-url: ${MEDIA_PUBLIC_BASE_URL:http://localhost:9000/aksiyoncuk-media}
+    path-style-access: ${MEDIA_PATH_STYLE_ACCESS:true}
+    avatar-max-bytes: ${MEDIA_AVATAR_MAX_BYTES:5242880}
+    cover-max-bytes: ${MEDIA_COVER_MAX_BYTES:10485760}
+    post-max-bytes: ${MEDIA_POST_MAX_BYTES:10485760}
+    work-max-bytes: ${MEDIA_WORK_MAX_BYTES:15728640}
 
 management:
   endpoints:

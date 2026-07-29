@@ -15,7 +15,9 @@ public record CurrentProfileResponse(
     Instant updatedAt,
     long followerCount,
     long followingCount,
-    boolean followedByCurrentUser) {
+    boolean followedByCurrentUser,
+    String avatarUrl,
+    String coverUrl) {
 
   public static CurrentProfileResponse from(
       Profile profile, long followerCount, long followingCount) {
@@ -30,6 +32,25 @@ public record CurrentProfileResponse(
         profile.getUpdatedAt(),
         followerCount,
         followingCount,
-        false);
+        false,
+        null,
+        null);
+  }
+
+  public CurrentProfileResponse withMedia(String avatarUrl, String coverUrl) {
+    return new CurrentProfileResponse(
+        id,
+        user,
+        professionalTitle,
+        bio,
+        location,
+        websiteUrl,
+        createdAt,
+        updatedAt,
+        followerCount,
+        followingCount,
+        followedByCurrentUser,
+        avatarUrl,
+        coverUrl);
   }
 }

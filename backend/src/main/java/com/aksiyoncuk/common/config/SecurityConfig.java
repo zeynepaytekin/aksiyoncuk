@@ -67,6 +67,11 @@ public class SecurityConfig {
                         "/api/v1/conversations/**",
                         "/api/v1/messaging/summary")
                     .authenticated()
+                    .requestMatchers(
+                        "/api/v1/media/**",
+                        "/api/v1/posts/{postId}/media/**",
+                        "/api/v1/works/{workId}/media/**")
+                    .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/v1/profiles/me")
                     .authenticated()
                     .requestMatchers(HttpMethod.PATCH, "/api/v1/profiles/me")

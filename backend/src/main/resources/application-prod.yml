@@ -5,6 +5,13 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+app:
+  media:
+    endpoint: ${MEDIA_STORAGE_ENDPOINT}
+    access-key: ${MEDIA_STORAGE_ACCESS_KEY}
+    secret-key: ${MEDIA_STORAGE_SECRET_KEY}
+    public-base-url: ${MEDIA_PUBLIC_BASE_URL}
+
 springdoc:
   api-docs:
     enabled: false

@@ -2,6 +2,7 @@ package com.aksiyoncuk.post.service;
 
 import com.aksiyoncuk.auth.exception.AuthException;
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
+import com.aksiyoncuk.media.service.MediaService;
 import com.aksiyoncuk.post.dto.CreatePostRequest;
 import com.aksiyoncuk.post.dto.PostPageResponse;
 import com.aksiyoncuk.post.dto.PostResponse;
@@ -15,6 +16,7 @@ import com.aksiyoncuk.post.repository.PostRow;
 import com.aksiyoncuk.profile.repository.ProfileRepository;
 import com.aksiyoncuk.user.repository.UserRepository;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -31,14 +33,25 @@ public class PostService {
   private final PostRepository postRepository;
   private final UserRepository userRepository;
   private final ProfileRepository profileRepository;
+  private final MediaService mediaService;
 
   public PostService(
       PostRepository postRepository,
       UserRepository userRepository,
       ProfileRepository profileRepository) {
+    this(postRepository, userRepository, profileRepository, null);
+  }
+
+  @Autowired
+  public PostService(
+      PostRepository postRepository,
+      UserRepository userRepository,
+      ProfileRepository profileRepository,
+      MediaService mediaService) {
     this.postRepository = postRepository;
     this.userRepository = userRepository;
     this.profileRepository = profileRepository;
+    this.mediaService = mediaService;
   }
 
   @Transactional
@@ -92,7 +105,7 @@ public class PostService {
   public PostResponse find(UUID postId, AuthenticatedUser principal) {
     return postRepository
         .findProjectedById(postId, userId(principal))
-        .map(row -> PostResponse.from(row, userId(principal)))
+        .map(row -> withMedia(PostResponse.from(row, userId(principal))))
         .orElseThrow(PostNotFoundException::new);
   }
 
@@ -102,6 +115,7 @@ public class PostService {
     if (!post.getAuthor().getId().equals(principal.userId())) {
       throw new PostDeleteForbiddenException();
     }
+    if (mediaService != null) mediaService.removePostMedia(postId);
     postRepository.delete(post);
   }
 
@@ -128,13 +142,21 @@ public class PostService {
 
   private PostPageResponse response(Page<PostRow> rows, UUID currentUserId) {
     return new PostPageResponse(
-        rows.getContent().stream().map(row -> PostResponse.from(row, currentUserId)).toList(),
+        rows.getContent().stream()
+            .map(row -> withMedia(PostResponse.from(row, currentUserId)))
+            .toList(),
         rows.getNumber(),
         rows.getSize(),
         rows.getTotalElements(),
         rows.getTotalPages(),
         rows.isFirst(),
         rows.isLast());
+  }
+
+  private PostResponse withMedia(PostResponse response) {
+    return mediaService == null
+        ? response
+        : response.withMedia(mediaService.postItems(response.id()));
   }
 
   private UUID userId(AuthenticatedUser principal) {

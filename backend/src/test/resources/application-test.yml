@@ -19,3 +19,11 @@ springdoc:
 app:
   jwt:
     access-secret: test-only-secret-with-at-least-32-bytes
+  media:
+    endpoint: http://localhost:9000
+    region: us-east-1
+    access-key: test
+    secret-key: test
+    bucket: test-media
+    public-base-url: http://localhost:9000/test-media
+    path-style-access: true
