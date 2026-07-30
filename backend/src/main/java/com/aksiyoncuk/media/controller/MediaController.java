@@ -79,6 +79,19 @@ public class MediaController {
     return created(media.uploadWork(workId, principal, file));
   }
 
+  @Operation(
+      summary = "Upload a freelance listing image",
+      description = "Seller-only; JPEG, PNG or WebP; maximum 15 MB and eight images.")
+  @PostMapping(
+      path = "/api/v1/freelance/services/{serviceId}/media",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  ResponseEntity<MediaAssetResponse> freelance(
+      @PathVariable UUID serviceId,
+      @AuthenticationPrincipal AuthenticatedUser principal,
+      @RequestPart("file") MultipartFile file) {
+    return created(media.uploadFreelanceService(serviceId, principal, file));
+  }
+
   @DeleteMapping("/api/v1/media/profile/avatar")
   ResponseEntity<Void> deleteAvatar(@AuthenticationPrincipal AuthenticatedUser principal) {
     media.deleteAvatar(principal);
@@ -109,6 +122,15 @@ public class MediaController {
     return ResponseEntity.noContent().build();
   }
 
+  @DeleteMapping("/api/v1/freelance/services/{serviceId}/media/{mediaId}")
+  ResponseEntity<Void> deleteFreelance(
+      @PathVariable UUID serviceId,
+      @PathVariable UUID mediaId,
+      @AuthenticationPrincipal AuthenticatedUser principal) {
+    media.deleteFreelanceService(serviceId, mediaId, principal);
+    return ResponseEntity.noContent().build();
+  }
+
   @PutMapping("/api/v1/posts/{postId}/media/order")
   List<MediaListItemResponse> reorderPost(
       @PathVariable UUID postId,
@@ -123,6 +145,14 @@ public class MediaController {
       @AuthenticationPrincipal AuthenticatedUser principal,
       @org.springframework.web.bind.annotation.RequestBody MediaOrderRequest request) {
     return media.reorderWork(workId, principal, request);
+  }
+
+  @PutMapping("/api/v1/freelance/services/{serviceId}/media/order")
+  List<MediaListItemResponse> reorderFreelance(
+      @PathVariable UUID serviceId,
+      @AuthenticationPrincipal AuthenticatedUser principal,
+      @org.springframework.web.bind.annotation.RequestBody MediaOrderRequest request) {
+    return media.reorderFreelanceService(serviceId, principal, request);
   }
 
   private ResponseEntity<MediaAssetResponse> created(MediaAssetResponse response) {

@@ -22,6 +22,7 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -44,6 +45,7 @@ public class MediaService {
   private final PostRepository posts;
   private final WorkRepository works;
   private final UserRepository users;
+  private final JdbcTemplate jdbc;
 
   public MediaService(
       MediaProperties properties,
@@ -55,7 +57,8 @@ public class MediaService {
       ProfileRepository profiles,
       PostRepository posts,
       WorkRepository works,
-      UserRepository users) {
+      UserRepository users,
+      JdbcTemplate jdbc) {
     this.properties = properties;
     this.storage = storage;
     this.validator = validator;
@@ -66,6 +69,7 @@ public class MediaService {
     this.posts = posts;
     this.works = works;
     this.users = users;
+    this.jdbc = jdbc;
   }
 
   @Transactional
@@ -156,6 +160,102 @@ public class MediaService {
       throw conflict("MEDIA_LIMIT_EXCEEDED", "Work media could not be added concurrently");
     }
     return response(asset, order);
+  }
+
+  @Transactional
+  public MediaAssetResponse uploadFreelanceService(
+      UUID serviceId, AuthenticatedUser principal, MultipartFile file) {
+    var listing =
+        jdbc
+            .query(
+                "SELECT seller_user_id,status FROM freelance_services WHERE id=? FOR UPDATE",
+                (rs, n) ->
+                    new Object[] {
+                      rs.getObject("seller_user_id", UUID.class), rs.getString("status")
+                    },
+                serviceId)
+            .stream()
+            .findFirst()
+            .orElseThrow(
+                () -> missing("FREELANCE_SERVICE_NOT_FOUND", "Freelance service was not found"));
+    owner((UUID) listing[0], principal);
+    if ("ARCHIVED".equals(listing[1]))
+      throw conflict("FREELANCE_SERVICE_NOT_EDITABLE", "Archived listings cannot be changed");
+    var order =
+        Objects.requireNonNull(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM freelance_service_media WHERE service_id=?",
+                Integer.class,
+                serviceId));
+    if (order >= 8)
+      throw conflict(
+          "FREELANCE_SERVICE_MEDIA_LIMIT_EXCEEDED", "Freelance services support at most 8 images");
+    var asset =
+        store(principal, file, MediaUsageType.FREELANCE_SERVICE_IMAGE, properties.workMaxBytes());
+    try {
+      jdbc.update(
+          "INSERT INTO freelance_service_media(id,service_id,media_asset_id,display_order) VALUES (?,?,?,?)",
+          UUID.randomUUID(),
+          serviceId,
+          asset.getId(),
+          order);
+    } catch (RuntimeException exception) {
+      compensate(asset);
+      throw conflict(
+          "FREELANCE_SERVICE_MEDIA_LIMIT_EXCEEDED",
+          "Freelance media could not be added concurrently");
+    }
+    return response(asset, order);
+  }
+
+  @Transactional
+  public void deleteFreelanceService(UUID serviceId, UUID mediaId, AuthenticatedUser principal) {
+    lockFreelanceOwner(serviceId, principal);
+    var asset =
+        assets
+            .findById(mediaId)
+            .orElseThrow(() -> missing("MEDIA_NOT_FOUND", "Freelance service media was not found"));
+    var changed =
+        jdbc.update(
+            "DELETE FROM freelance_service_media WHERE service_id=? AND media_asset_id=?",
+            serviceId,
+            mediaId);
+    if (changed != 1) throw missing("MEDIA_NOT_FOUND", "Freelance service media was not found");
+    compactFreelance(serviceId);
+    cleanupReplaced(asset);
+  }
+
+  @Transactional
+  public List<MediaListItemResponse> reorderFreelanceService(
+      UUID serviceId, AuthenticatedUser principal, MediaOrderRequest request) {
+    lockFreelanceOwner(serviceId, principal);
+    var current =
+        jdbc.queryForList(
+            "SELECT media_asset_id FROM freelance_service_media WHERE service_id=? ORDER BY display_order,id",
+            UUID.class,
+            serviceId);
+    validateOrder(request, current);
+    applyFreelanceOrder(serviceId, request.mediaIds());
+    return freelanceItems(serviceId);
+  }
+
+  @Transactional(readOnly = true)
+  public List<MediaListItemResponse> freelanceItems(UUID serviceId) {
+    return jdbc.query(
+        """
+        SELECT a.id,a.storage_key,a.content_type,m.display_order
+        FROM freelance_service_media m JOIN media_assets a ON a.id=m.media_asset_id
+        WHERE m.service_id=? AND a.status='ACTIVE' ORDER BY m.display_order,m.id
+        """,
+        (rs, n) ->
+            new MediaListItemResponse(
+                rs.getObject("id", UUID.class),
+                storage.resolvePublicUrl(rs.getString("storage_key")).toString(),
+                rs.getString("content_type"),
+                null,
+                null,
+                rs.getInt("display_order")),
+        serviceId);
   }
 
   @Transactional
@@ -347,6 +447,46 @@ public class MediaService {
   private void compactWork(UUID id) {
     var relations = workMedia.findByWorkIdOrderByDisplayOrderAscIdAsc(id);
     applyWorkOrder(relations, relations.stream().map(r -> r.getMediaAsset().getId()).toList());
+  }
+
+  private void lockFreelanceOwner(UUID serviceId, AuthenticatedUser principal) {
+    var result =
+        jdbc
+            .query(
+                "SELECT seller_user_id,status FROM freelance_services WHERE id=? FOR UPDATE",
+                (rs, n) ->
+                    new Object[] {
+                      rs.getObject("seller_user_id", UUID.class), rs.getString("status")
+                    },
+                serviceId)
+            .stream()
+            .findFirst()
+            .orElseThrow(
+                () -> missing("FREELANCE_SERVICE_NOT_FOUND", "Freelance service was not found"));
+    owner((UUID) result[0], principal);
+    if ("ARCHIVED".equals(result[1]))
+      throw conflict("FREELANCE_SERVICE_NOT_EDITABLE", "Archived listings cannot be changed");
+  }
+
+  private void applyFreelanceOrder(UUID serviceId, List<UUID> ids) {
+    jdbc.update(
+        "UPDATE freelance_service_media SET display_order=-100-display_order WHERE service_id=?",
+        serviceId);
+    for (int i = 0; i < ids.size(); i++)
+      jdbc.update(
+          "UPDATE freelance_service_media SET display_order=? WHERE service_id=? AND media_asset_id=?",
+          i,
+          serviceId,
+          ids.get(i));
+  }
+
+  private void compactFreelance(UUID serviceId) {
+    var ids =
+        jdbc.queryForList(
+            "SELECT media_asset_id FROM freelance_service_media WHERE service_id=? ORDER BY display_order,id",
+            UUID.class,
+            serviceId);
+    applyFreelanceOrder(serviceId, ids);
   }
 
   private MediaAssetResponse response(MediaAsset asset, Integer order) {

@@ -62,6 +62,16 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/search", "/api/v1/search/**")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/freelance/categories/**")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/freelance/services/mine")
+                    .authenticated()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/freelance/services",
+                        "/api/v1/freelance/services/{serviceId}",
+                        "/api/v1/freelance/services/{serviceId}/reviews")
+                    .permitAll()
                     .requestMatchers(
                         "/api/v1/conversations",
                         "/api/v1/conversations/**",

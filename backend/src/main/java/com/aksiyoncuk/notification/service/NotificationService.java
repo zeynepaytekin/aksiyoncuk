@@ -84,6 +84,23 @@ public class NotificationService {
         actor.getFullName() + " " + action + " your job application.");
   }
 
+  public void freelanceEvent(
+      String eventKey,
+      User actor,
+      User recipient,
+      NotificationType type,
+      UUID entityId,
+      String message) {
+    create(
+        eventKey,
+        recipient,
+        actor,
+        type,
+        NotificationEntityType.FREELANCE_ORDER,
+        entityId,
+        message);
+  }
+
   @Transactional(readOnly = true)
   public NotificationPageResponse list(
       AuthenticatedUser principal, int page, int size, boolean unreadOnly, String type) {

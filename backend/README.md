@@ -1261,3 +1261,95 @@ should add antivirus/content scanning and an orphan-cleanup reconciliation job.
 Future video work should use a separate private ingest bucket, asynchronous
 scanning/transcoding jobs, rendition manifests, CDN delivery, and authorization
 appropriate for streaming; it should not overload this image upload path.
+# Freelance Marketplace Phase 1
+
+The Phase 1 marketplace is implemented under `/api/v1/freelance`. It reuses the existing users,
+profiles, works, media storage, direct messaging, notifications, authentication, and structured
+API error response. No payment provider, escrow, wallet, refund, tax, invoice, commission, or
+payout behavior exists. An order in `CREATED` state is explicitly **not paid**.
+
+## Marketplace model
+
+- Active, public categories are available from `GET /api/v1/freelance/categories`. V15 seeds
+  stable Turkish slugs for design, animation, software, writing, audio, marketing, photography,
+  stage arts, and film production.
+- Seller listings start as `DRAFT`, can become `PUBLISHED`, may be `PAUSED`, and can be terminally
+  `ARCHIVED`. Publishing requires an active category and at least one active package.
+- A listing has one to three `BASIC`, `STANDARD`, and `PREMIUM` packages. Package prices use
+  `NUMERIC(19,2)`/`BigDecimal`, are currently restricted to `TRY`, and include server-validated
+  delivery days and revision counts.
+- Up to six seller-owned portfolio works can be linked. The complete ordered work ID set is
+  replaced transactionally during listing edits.
+- Up to eight JPEG, PNG, or WebP images (15 MB each) can be uploaded with multipart field `file`
+  through `POST /api/v1/freelance/services/{serviceId}/media`. Delete and complete-list reorder
+  endpoints follow the existing post/work media API. Images use the shared S3-compatible storage,
+  validation, compensation, and public-URL strategy; storage keys are never returned.
+
+Public search is `GET /api/v1/freelance/services` and supports `q`, `category`, `seller`,
+`minPrice`, `maxPrice`, `deliveryDaysMax`, `minimumRating`, `packageTier`, `page`, `size`, and
+`sort`. Sort values are `NEWEST`, `RATING_DESC`, `PRICE_ASC`, `PRICE_DESC`, `DELIVERY_ASC`, and
+`POPULAR`. Only published listings are returned, with deterministic ID tie-breaking and a maximum
+page size of 50.
+
+## Order workflow
+
+```text
+CREATED -> IN_PROGRESS -> DELIVERED -> COMPLETED
+                         DELIVERED -> REVISION_REQUESTED -> IN_PROGRESS
+CREATED | IN_PROGRESS | DELIVERED | REVISION_REQUESTED
+  -> CANCELLATION_REQUESTED -> CANCELLED or previous state
+```
+
+The buyer selects a package, but price, currency, delivery time, revision allowance, buyer/seller,
+and listing identity are derived server-side and copied into an immutable historical snapshot.
+The seller explicitly starts an order; only then is its UTC due date calculated. Deliveries are
+immutable plain-text records. A buyer revision request consumes one allowance transactionally,
+then the seller explicitly acknowledges it before redelivery.
+
+Either party can create one pending cancellation request. Only the other party accepts/rejects;
+only its requester withdraws. Reject/withdraw restores the recorded previous state. Acceptance
+cancels without claiming a refund. Completed and cancelled orders are immutable.
+
+The buyer can review a completed order once. Rating is 1–5; service average/count are recalculated
+inside the review transaction with two-decimal rounding. Order requirements and histories are
+visible only to the buyer and seller.
+
+`POST /api/v1/freelance/services/{serviceId}/conversation` creates or reuses the existing direct
+conversation with the seller and never sends an automatic message. Important order, delivery,
+revision, cancellation, completion, rejection, and review events use the existing idempotent
+notification system.
+
+## Concurrency and security
+
+All mutations require bearer authentication and derive the actor from the JWT principal.
+Listing/order row locks serialize package replacement, publishing, media limits, and state
+transitions. Unique constraints protect package tiers/order, order numbers, one review per order,
+revision sequences, and the partial one-pending-cancellation invariant. Version columns preserve a
+future optimistic-lock contract. Ownership and buyer/seller roles are checked in the transactional
+service; unrelated users receive structured 403 responses.
+
+Public listing media is publicly readable. Do not upload sensitive images; image EXIF/GPS metadata
+is currently preserved and antivirus scanning is not claimed. Phase 2 can add payment authorization
+and escrow state, disputes/refunds, commission/payout accounting, richer delivery attachments,
+administrative category management, and event-driven WebSocket updates without replacing these
+snapshot and state-machine foundations.
+
+### Examples
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"serviceId":"SERVICE_UUID","packageId":"PACKAGE_UUID","requirements":"Detailed requirements here"}' \
+  http://localhost:8080/api/v1/freelance/orders
+
+curl -H "Authorization: Bearer $TOKEN" -F "file=@listing.webp;type=image/webp" \
+  http://localhost:8080/api/v1/freelance/services/SERVICE_UUID/media
+```
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "$Api/api/v1/freelance/orders" `
+  -Headers @{ Authorization = "Bearer $Token" } -ContentType "application/json" `
+  -Body (@{ serviceId=$ServiceId; packageId=$PackageId; requirements="Detailed requirements here" } | ConvertTo-Json)
+
+curl.exe -H "Authorization: Bearer $Token" -F "file=@listing.webp;type=image/webp" `
+  "$Api/api/v1/freelance/services/$ServiceId/media"
+```

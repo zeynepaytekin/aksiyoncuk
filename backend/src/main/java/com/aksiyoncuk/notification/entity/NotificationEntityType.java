@@ -4,5 +4,7 @@ public enum NotificationEntityType {
   USER,
   POST,
   JOB,
-  JOB_APPLICATION
+  JOB_APPLICATION,
+  FREELANCE_SERVICE,
+  FREELANCE_ORDER
 }
