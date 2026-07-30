@@ -72,11 +72,11 @@ export default function Navbar() {
           <Link href="/jobs" className="hover:text-black">
             Jobs
           </Link>
-          <Link href="#" className="hover:text-black">
-            Crowdfunding
+          <Link href="/freelance" className="hover:text-black">
+            Marketplace
           </Link>
           <Link href="#" className="hover:text-black">
-            Films
+            Crowdfunding
           </Link>
         </nav>
 

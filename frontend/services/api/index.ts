@@ -11,3 +11,5 @@ export type { ProfileService } from "./profile.service";
 export { worksService } from "./works.service";
 export type { WorksService } from "./works.service";
 export { mediaService } from "./media.service";
+export { freelanceService } from "./freelance.service";
+export type { FreelanceServiceApi } from "./freelance.service";

@@ -24,5 +24,8 @@ export function getNotificationHref(
   ) {
     return `/applications/view?id=${encodeURIComponent(notification.entityId)}`;
   }
+  if (notification.type.startsWith("FREELANCE_") && notification.entityId) {
+    return `/freelance/order?order=${encodeURIComponent(notification.entityId)}`;
+  }
   return null;
 }

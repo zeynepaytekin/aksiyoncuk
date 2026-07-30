@@ -5,6 +5,8 @@ import Feed from "@/components/feed/Feed";
 import PostCard from "@/components/feed/PostCard";
 import ProfilePostsSection from "@/components/feed/ProfilePostsSection";
 import { ApiError } from "@/services/api/apiClient";
+import { mediaService } from "@/services/api/media.service";
+import { postsService } from "@/services/api/posts.service";
 import type { AuthUser } from "@/types/auth";
 import type { Post, PostPageMetadata } from "@/types/feed";
 
@@ -14,6 +16,7 @@ const createPost = vi.fn();
 const deletePost = vi.fn();
 const toggleLike = vi.fn();
 const clearLikeError = vi.fn();
+const syncPost = vi.fn();
 
 const user: AuthUser = {
   id: "user-id",
@@ -70,6 +73,7 @@ const postsState = {
   deletePost,
   toggleLike,
   clearLikeError,
+  syncPost,
 };
 
 vi.mock("@/store/auth.store", () => ({
@@ -94,6 +98,11 @@ describe("feed UI", () => {
     toggleLike.mockReset();
     toggleLike.mockResolvedValue(undefined);
     clearLikeError.mockReset();
+    syncPost.mockReset();
+    vi.spyOn(mediaService, "uploadPostImage").mockReset();
+    vi.spyOn(mediaService, "deletePostImage").mockReset();
+    vi.spyOn(mediaService, "reorderPostImages").mockReset();
+    vi.spyOn(postsService, "getById").mockReset();
     postsState.globalPosts = [post];
     postsState.globalPageMetadata = metadata;
     postsState.globalStatus = "loaded";
@@ -208,27 +217,174 @@ describe("feed UI", () => {
     expect(toggleLike).toHaveBeenCalledWith(post.id);
   });
 
-  it("shows delete only for owned posts and confirms deletion", async () => {
+  it("shows owner actions only for owned posts and confirms deletion", async () => {
     deletePost.mockResolvedValue(undefined);
     const { rerender } = render(<PostCard post={post} />);
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Post actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete post" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
-    fireEvent.click(deleteButtons.at(-1)!);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(deletePost).toHaveBeenCalledWith("post-id"));
 
     rerender(<PostCard post={{ ...post, ownedByCurrentUser: false }} />);
-    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Post actions" })).toBeNull();
   });
 
   it("keeps the delete dialog open and displays failures", async () => {
     deletePost.mockRejectedValue(new Error("failed"));
     render(<PostCard post={post} />);
+    fireEvent.click(screen.getByRole("button", { name: "Post actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete post" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Delete" }).at(-1)!);
     expect(
       await screen.findByText("Something went wrong. Please try again."),
     ).toBeInTheDocument();
+  });
+
+  it("keeps published owner posts read-only until image management is opened", () => {
+    const mediaPost: Post = {
+      ...post,
+      media: [
+        {
+          id: "media-1",
+          url: "https://cdn.example.com/one.jpg",
+          contentType: "image/jpeg",
+          width: null,
+          height: null,
+          displayOrder: 0,
+        },
+      ],
+    };
+    render(<PostCard post={mediaPost} />);
+
+    expect(screen.getByAltText("Post by Creative User, image 1")).toBeInTheDocument();
+    expect(screen.queryByText("Add images")).toBeNull();
+    expect(screen.queryByLabelText(/Move image/)).toBeNull();
+    expect(screen.queryByLabelText("Delete image 1")).toBeNull();
+    expect(screen.queryByText("Choose images")).toBeNull();
+  });
+
+  it("opens owner-only image management with accessible controls", () => {
+    const mediaPost: Post = {
+      ...post,
+      media: [
+        {
+          id: "media-1",
+          url: "https://cdn.example.com/one.jpg",
+          contentType: "image/jpeg",
+          width: null,
+          height: null,
+          displayOrder: 0,
+        },
+        {
+          id: "media-2",
+          url: "https://cdn.example.com/two.jpg",
+          contentType: "image/jpeg",
+          width: null,
+          height: null,
+          displayOrder: 1,
+        },
+      ],
+    };
+    render(<PostCard post={mediaPost} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Post actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Manage images" }));
+
+    expect(
+      screen.getByRole("dialog", { name: "Manage post images" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("2 / 4 images")).toBeInTheDocument();
+    expect(screen.getByLabelText("Move image 1 right")).toBeEnabled();
+    expect(screen.getByLabelText("Delete image 1")).toBeEnabled();
+    expect(screen.getByText("Choose images")).toBeInTheDocument();
+  });
+
+  it("does not render media management for a non-owner or empty upload area", () => {
+    render(
+      <PostCard
+        post={{ ...post, ownedByCurrentUser: false, media: undefined }}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Post actions" })).toBeNull();
+    expect(screen.queryByText("Manage images")).toBeNull();
+    expect(screen.queryByText("Choose images")).toBeNull();
+  });
+
+  it("submits immediate reorder and refreshes the authoritative post", async () => {
+    const mediaPost: Post = {
+      ...post,
+      media: [
+        {
+          id: "media-1",
+          url: "https://cdn.example.com/one.jpg",
+          contentType: "image/jpeg",
+          width: null,
+          height: null,
+          displayOrder: 0,
+        },
+        {
+          id: "media-2",
+          url: "https://cdn.example.com/two.jpg",
+          contentType: "image/jpeg",
+          width: null,
+          height: null,
+          displayOrder: 1,
+        },
+      ],
+    };
+    vi.mocked(mediaService.reorderPostImages).mockResolvedValue(mediaPost.media!);
+    vi.mocked(postsService.getById).mockResolvedValue(mediaPost);
+    render(<PostCard post={mediaPost} />);
+    fireEvent.click(screen.getByRole("button", { name: "Post actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Manage images" }));
+    fireEvent.click(screen.getByLabelText("Move image 1 right"));
+
+    await waitFor(() =>
+      expect(mediaService.reorderPostImages).toHaveBeenCalledWith("post-id", [
+        "media-2",
+        "media-1",
+      ]),
+    );
+    await waitFor(() => expect(syncPost).toHaveBeenCalledWith(mediaPost));
+  });
+
+  it("keeps authoritative media visible when a mutation fails", async () => {
+    const mediaPost: Post = {
+      ...post,
+      media: [
+        {
+          id: "media-1",
+          url: "https://cdn.example.com/one.jpg",
+          contentType: "image/jpeg",
+          width: null,
+          height: null,
+          displayOrder: 0,
+        },
+        {
+          id: "media-2",
+          url: "https://cdn.example.com/two.jpg",
+          contentType: "image/jpeg",
+          width: null,
+          height: null,
+          displayOrder: 1,
+        },
+      ],
+    };
+    vi.mocked(mediaService.reorderPostImages).mockRejectedValue(
+      new Error("failed"),
+    );
+    render(<PostCard post={mediaPost} />);
+    fireEvent.click(screen.getByRole("button", { name: "Post actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Manage images" }));
+    fireEvent.click(screen.getByLabelText("Move image 1 right"));
+
+    expect(
+      await screen.findByText("The media operation could not be completed."),
+    ).toBeInTheDocument();
+    expect(screen.getByAltText("Post image 1")).toBeInTheDocument();
+    expect(screen.getByAltText("Post image 2")).toBeInTheDocument();
+    expect(syncPost).not.toHaveBeenCalled();
   });
 
   it("loads the authenticated profile feed and shows its empty state", async () => {

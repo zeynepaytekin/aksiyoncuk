@@ -1,5 +1,35 @@
 # Aksiyoncuk Backend
 
+## Local development startup
+
+Keep local credentials in the repository-root `.env` file. It is Git-ignored and
+must never be committed. Start PostgreSQL and MinIO with:
+
+```powershell
+docker compose up -d postgres minio minio-init
+```
+
+Then start the packaged backend with one command:
+
+```powershell
+./scripts/start-backend-dev.ps1
+```
+
+The script loads the root `.env` into the backend process, selects the `dev`
+profile, packages the application, and starts the jar. Use `-SkipBuild` only
+when the current jar is already packaged.
+
+`MINIO_ROOT_USER` must equal `MEDIA_STORAGE_ACCESS_KEY`, and
+`MINIO_ROOT_PASSWORD` must equal `MEDIA_STORAGE_SECRET_KEY`. Local MinIO uses
+API URL `http://localhost:9000`, Console URL `http://localhost:9001`, and bucket
+`aksiyoncuk-media`.
+
+If an upload returns `MEDIA_STORAGE_UNAVAILABLE`, check that MinIO is healthy,
+run `docker compose up -d minio minio-init`, confirm the bucket exists, and
+confirm the four credential variables above match. Also ensure
+`MEDIA_STORAGE_ENDPOINT=http://localhost:9000` and
+`MEDIA_PATH_STYLE_ACCESS=true`.
+
 Spring Boot foundation for the Aksiyoncuk platform.
 
 ## Required software

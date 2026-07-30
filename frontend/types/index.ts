@@ -101,3 +101,4 @@ export type {
   SelectedImageFile,
   UploadValidationResult,
 } from "./media";
+export type * from "./freelance";

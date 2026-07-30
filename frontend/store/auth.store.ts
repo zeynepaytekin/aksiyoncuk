@@ -16,6 +16,7 @@ import { networkStateCoordinator } from "@/services/network/networkStateCoordina
 import { notificationsStateCoordinator } from "@/services/notifications/notificationsStateCoordinator";
 import { searchStateCoordinator } from "@/services/search/searchStateCoordinator";
 import { messagingStateCoordinator } from "@/services/messaging/messagingStateCoordinator";
+import { freelanceStateCoordinator } from "@/services/freelance/freelanceStateCoordinator";
 import type {
   AuthResponse,
   AuthUser,
@@ -131,6 +132,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       notificationsStateCoordinator.authenticationChanged(true);
       searchStateCoordinator.authenticationChanged(true);
       messagingStateCoordinator.authenticationChanged(true);
+      freelanceStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -153,6 +155,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       notificationsStateCoordinator.authenticationChanged(true);
       searchStateCoordinator.authenticationChanged(true);
       messagingStateCoordinator.authenticationChanged(true);
+      freelanceStateCoordinator.authenticationChanged(true);
     } catch (error) {
       const apiError =
         error instanceof ApiError
@@ -181,6 +184,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         notificationsStateCoordinator.authenticationChanged(true);
         searchStateCoordinator.authenticationChanged(true);
         messagingStateCoordinator.authenticationChanged(true);
+        freelanceStateCoordinator.authenticationChanged(true);
       }
     } catch (error) {
       get().clearSession();
@@ -212,6 +216,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     notificationsStateCoordinator.authenticationChanged(false);
     searchStateCoordinator.authenticationChanged(false);
     messagingStateCoordinator.authenticationChanged(false);
+    freelanceStateCoordinator.authenticationChanged(false);
     set(clearedState);
   },
 

@@ -33,7 +33,9 @@ export default function ExistingMediaUpload({ purpose, remaining, upload }: Prop
       <ImageFilePicker purpose={purpose} maximum={remaining} files={files} onChange={setFiles} disabled={busy} />
       <Button type="button" size="sm" disabled={!files.length || busy} isLoading={busy}
         loadingText="Uploading..." onClick={() => void submit()}>Add images</Button>
-      {error && <div role="alert"><FormError message={error} /></div>}
+      <div aria-live="polite">
+        {error && <div role="alert"><FormError message={error} /></div>}
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import PostComments from "@/components/feed/PostComments";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import Dropdown from "@/components/ui/Dropdown";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
 import { getPostErrorMessage } from "@/services/api/postErrorMessage";
@@ -27,6 +28,7 @@ type PostCardProps = {
 
 export default function PostCard({ compact = false, post }: PostCardProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isManagingMedia, setIsManagingMedia] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [mediaBusy, setMediaBusy] = useState(false);
@@ -75,6 +77,42 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
     void toggleLike(post.id).catch(() => undefined);
   }
 
+  async function reorderMedia(index: number, direction: -1 | 1) {
+    const destination = index + direction;
+    if (
+      mediaBusy ||
+      destination < 0 ||
+      destination >= media.length
+    ) {
+      return;
+    }
+    const ids = media.map(({ id }) => id);
+    [ids[index], ids[destination]] = [ids[destination], ids[index]];
+    setMediaBusy(true);
+    setMediaError("");
+    try {
+      await mediaService.reorderPostImages(post.id, ids);
+      syncPost(await postsService.getById(post.id));
+    } catch (error) {
+      setMediaError(getMediaErrorMessage(error));
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function deleteMedia(mediaId: string) {
+    setMediaBusy(true);
+    setMediaError("");
+    try {
+      await mediaService.deletePostImage(post.id, mediaId);
+      syncPost(await postsService.getById(post.id));
+    } catch (error) {
+      setMediaError(getMediaErrorMessage(error));
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
   const body = (
     <>
       <div className="mb-3 flex items-start justify-between gap-4">
@@ -93,60 +131,41 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
           </time>
         </div>
         {post.ownedByCurrentUser && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsConfirmingDelete(true)}
-          >
-            Delete
-          </Button>
+          <Dropdown
+            align="right"
+            label="Post actions"
+            trigger={
+              <span
+                aria-hidden="true"
+                className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl text-xl text-gray-600 hover:bg-gray-100"
+              >
+                ⋯
+              </span>
+            }
+            items={[
+              {
+                id: "manage-images",
+                label: "Manage images",
+                onSelect: () => setIsManagingMedia(true),
+              },
+              {
+                id: "delete",
+                label: "Delete post",
+                onSelect: () => setIsConfirmingDelete(true),
+              },
+            ]}
+          />
         )}
       </div>
 
       <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
         {post.content}
       </p>
-      <MediaGallery media={media} alt={`Post by ${post.author.fullName}`} compact={compact} />
-      {post.ownedByCurrentUser && media.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2" aria-label="Manage post images">
-          {media.map((item, index) => (
-            <span key={item.id} className="flex gap-1">
-              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy || index === 0}
-                aria-label="Move image left" onClick={() => void (async () => {
-                  const ids = media.map(({ id }) => id);
-                  [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
-                  setMediaBusy(true); setMediaError("");
-                  try { await mediaService.reorderPostImages(post.id, ids); syncPost(await postsService.getById(post.id)); }
-                  catch (error) { setMediaError(getMediaErrorMessage(error)); } finally { setMediaBusy(false); }
-                })()}>←</Button>
-              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy || index === media.length - 1}
-                aria-label="Move image right" onClick={() => void (async () => {
-                  const ids = media.map(({ id }) => id);
-                  [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
-                  setMediaBusy(true); setMediaError("");
-                  try { await mediaService.reorderPostImages(post.id, ids); syncPost(await postsService.getById(post.id)); }
-                  catch (error) { setMediaError(getMediaErrorMessage(error)); } finally { setMediaBusy(false); }
-                })()}>→</Button>
-              <Button type="button" variant="ghost" size="sm" disabled={mediaBusy}
-                aria-label={`Delete image ${index + 1}`} onClick={() => {
-                  if (!window.confirm("Delete this image?")) return;
-                  void (async () => { setMediaBusy(true); setMediaError("");
-                    try { await mediaService.deletePostImage(post.id, item.id); syncPost(await postsService.getById(post.id)); }
-                    catch (error) { setMediaError(getMediaErrorMessage(error)); } finally { setMediaBusy(false); }
-                  })();
-                }}>Delete image</Button>
-            </span>
-          ))}
-        </div>
-      )}
-      {mediaError && <div role="alert"><FormError message={mediaError} /></div>}
-      {post.ownedByCurrentUser && (
-        <ExistingMediaUpload purpose="post" remaining={4 - media.length}
-          upload={async (file) => {
-            await mediaService.uploadPostImage(post.id, file);
-            syncPost(await postsService.getById(post.id));
-          }} />
-      )}
+      <MediaGallery
+        media={media}
+        alt={`Post by ${post.author.fullName}`}
+        compact={compact}
+      />
 
       <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
         {user ? (
@@ -197,6 +216,121 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
 
       {commentsExpanded && (
         <PostComments postId={post.id} regionId={commentsRegionId} />
+      )}
+
+      {post.ownedByCurrentUser && (
+        <Modal
+          isOpen={isManagingMedia}
+          onClose={() => {
+            if (!mediaBusy) {
+              setIsManagingMedia(false);
+              setMediaError("");
+            }
+          }}
+          title="Manage post images"
+          description="Changes are applied immediately. Posts can contain up to four images."
+          size="lg"
+          footer={
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={mediaBusy}
+              onClick={() => {
+                setIsManagingMedia(false);
+                setMediaError("");
+              }}
+            >
+              Done
+            </Button>
+          }
+        >
+          <p className="mb-4 text-sm font-medium text-gray-700">
+            {media.length} / 4 images
+          </p>
+
+          {media.length > 0 ? (
+            <div
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+              aria-label="Current post images"
+            >
+              {media.map((item, index) => (
+                <div
+                  key={item.id}
+                  className="overflow-hidden rounded-xl border border-gray-200"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.url}
+                    alt={`Post image ${index + 1}`}
+                    className="h-40 w-full bg-gray-100 object-cover"
+                  />
+                  <div className="flex flex-wrap gap-2 p-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={mediaBusy || index === 0}
+                      aria-label={`Move image ${index + 1} left`}
+                      onClick={() => void reorderMedia(index, -1)}
+                    >
+                      ←
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={mediaBusy || index === media.length - 1}
+                      aria-label={`Move image ${index + 1} right`}
+                      onClick={() => void reorderMedia(index, 1)}
+                    >
+                      →
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={mediaBusy}
+                      aria-label={`Delete image ${index + 1}`}
+                      onClick={() => {
+                        if (window.confirm(`Delete image ${index + 1}?`)) {
+                          void deleteMedia(item.id);
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              This post does not have any images yet.
+            </p>
+          )}
+
+          {media.length < 4 && (
+            <ExistingMediaUpload
+              purpose="post"
+              remaining={4 - media.length}
+              upload={async (file) => {
+                await mediaService.uploadPostImage(post.id, file);
+                syncPost(await postsService.getById(post.id));
+              }}
+            />
+          )}
+
+          <div className="mt-3 min-h-5" aria-live="polite">
+            {mediaBusy && (
+              <p className="text-sm text-gray-500">Updating images…</p>
+            )}
+            {mediaError && (
+              <div role="alert">
+                <FormError message={mediaError} />
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
 
       <Modal

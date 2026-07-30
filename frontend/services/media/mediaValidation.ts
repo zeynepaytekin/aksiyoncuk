@@ -5,6 +5,7 @@ export const MEDIA_LIMITS: Record<MediaUploadPurpose, number> = {
   cover: 10 * 1024 * 1024,
   post: 10 * 1024 * 1024,
   work: 15 * 1024 * 1024,
+  freelance: 15 * 1024 * 1024,
 };
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export function validateImageFile(

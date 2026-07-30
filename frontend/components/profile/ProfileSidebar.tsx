@@ -4,6 +4,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import type { CurrentProfile, PublicProfile } from "@/types/profile";
+import Link from "next/link";
 
 type ProfileSidebarProps = {
   profile: CurrentProfile | PublicProfile;
@@ -46,7 +47,7 @@ export default function ProfileSidebar({ profile }: ProfileSidebarProps) {
       <Card as="section">
         <h2 className="mb-3 text-lg font-bold">Switch Profiles</h2>
         <div className="space-y-2">
-          {["Networking", "Freelancer", "Teaching", "Film Distribution"].map(
+          {["Networking", "Teaching", "Film Distribution"].map(
             (item) => (
               <Button
                 key={item}
@@ -59,6 +60,12 @@ export default function ProfileSidebar({ profile }: ProfileSidebarProps) {
               </Button>
             ),
           )}
+          <Link
+            href="/freelance/manage"
+            className="block w-full rounded-xl border border-gray-200 px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50"
+          >
+            Freelancer Profile
+          </Link>
         </div>
       </Card>
     </aside>

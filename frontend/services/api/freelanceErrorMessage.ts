@@ -1,0 +1,34 @@
+import { ApiError } from "./apiClient";
+
+const messages: Record<string, string> = {
+  FREELANCE_CATEGORY_NOT_FOUND: "This marketplace category could not be found.",
+  FREELANCE_CATEGORY_INACTIVE: "This category is not currently available.",
+  FREELANCE_SERVICE_NOT_FOUND: "This service listing could not be found.",
+  FREELANCE_SERVICE_ACCESS_FORBIDDEN: "You do not have access to manage this listing.",
+  FREELANCE_SERVICE_NOT_EDITABLE: "This listing can no longer be edited.",
+  FREELANCE_SERVICE_NOT_PUBLISHABLE: "Complete the listing and add an active package before publishing.",
+  FREELANCE_SERVICE_NOT_ORDERABLE: "This listing is not currently accepting orders.",
+  FREELANCE_PACKAGE_INVALID: "Check the package details and try again.",
+  FREELANCE_PACKAGE_NOT_FOUND: "The selected package is no longer available.",
+  FREELANCE_WORK_LIMIT_EXCEEDED: "You can link at most six portfolio works.",
+  FREELANCE_WORK_NOT_OWNED: "Only portfolio works you own can be linked.",
+  FREELANCE_SELF_ORDER_NOT_ALLOWED: "You cannot order your own service.",
+  FREELANCE_ORDER_NOT_FOUND: "This order could not be found.",
+  FREELANCE_ORDER_ACCESS_FORBIDDEN: "You do not have access to this order.",
+  FREELANCE_ORDER_STATE_CONFLICT: "The order changed. Refresh to see its current state.",
+  FREELANCE_ORDER_ALREADY_STARTED: "This order has already started. Refresh to see its current state.",
+  FREELANCE_ORDER_NOT_DELIVERABLE: "This order cannot be delivered in its current state.",
+  FREELANCE_REVISION_LIMIT_EXCEEDED: "The included revision allowance has been used.",
+  FREELANCE_REVISION_STATE_CONFLICT: "The revision state changed. Refresh the order and try again.",
+  FREELANCE_CANCELLATION_ALREADY_PENDING: "A cancellation request is already pending.",
+  FREELANCE_CANCELLATION_STATE_CONFLICT: "The cancellation state changed. Refresh the order and try again.",
+  FREELANCE_CANCELLATION_NOT_FOUND: "The pending cancellation request is no longer available.",
+  FREELANCE_REVIEW_NOT_ALLOWED: "This order is not eligible for a review.",
+  FREELANCE_REVIEW_ALREADY_EXISTS: "A review has already been submitted for this order.",
+  FREELANCE_INVALID_PAGINATION: "The requested marketplace page is invalid.",
+  FREELANCE_INVALID_FILTER: "One or more marketplace filters are invalid.",
+  FREELANCE_CONCURRENT_MODIFICATION: "This item changed elsewhere. Refresh before trying again.",
+};
+export function freelanceErrorMessage(error: unknown, fallback = "The marketplace request could not be completed."): string {
+  return error instanceof ApiError ? messages[error.code] ?? error.message ?? fallback : fallback;
+}

@@ -105,3 +105,43 @@ claim malware scanning. Current exclusions include video, cropping,
 transformations, streaming, direct-to-storage uploads, private signed URLs, and
 numeric upload progress (the current fetch transport uses an accessible
 indeterminate state).
+# Freelance marketplace
+
+Phase 1 uses the real `/api/v1/freelance` backend through the shared authenticated
+API client. Public browsing lives at `/freelance`; query-string filters cover text,
+category, seller, price, delivery, rating, package tier, sort, and page. Static
+export is preserved by using query routes:
+
+- `/freelance/service?service=<uuid>`
+- `/freelance/create`
+- `/freelance/manage?service=<uuid>` (without `service`, this is the seller dashboard)
+- `/freelance/orders?tab=buying|selling&status=<status>&page=<number>`
+- `/freelance/order?order=<uuid>`
+
+Categories are read-only and retain backend display order and hierarchy. Listings
+move through `DRAFT`, `PUBLISHED`, `PAUSED`, and terminal `ARCHIVED`. A service
+contains one to three unique BASIC/STANDARD/PREMIUM packages. Package prices are
+entered as decimal strings and sent in TRY without client-side arithmetic. The
+editor links up to six existing owned portfolio works and manages up to eight
+public JPEG/PNG/WebP images (15 MB each); the first image is the thumbnail.
+
+Orders snapshot package terms server-side and move through CREATED, IN_PROGRESS,
+DELIVERED, REVISION_REQUESTED, CANCELLATION_REQUESTED, COMPLETED, or CANCELLED.
+The seller can start, reject, deliver plain text, and acknowledge revisions. The
+buyer can request included revisions and complete. Either participant can request
+cancellation; the other party accepts/rejects and the requester can withdraw.
+Completed eligible buyers can submit one 1–5 review. Contact actions create or
+reuse a conversation and open `/messages?conversation=<uuid>` without sending an
+automatic message.
+
+Marketplace notification enum labels and order links are integrated into the
+existing notification UI. Marketplace state uses a focused Zustand store with
+stale-response protection and entity synchronization. It is deliberately not
+persisted in localStorage or sessionStorage; files and object URLs remain local to
+the editor.
+
+Exact user-facing limitation: “No payment is processed at this stage.”
+
+Phase 1 has no payment forms or processing, escrow, wallets, refunds, disputes,
+payouts, commissions, subscriptions, promotion, coupons, delivery attachments,
+video/private media, WebSocket updates, or automatic completion timers.

@@ -3,9 +3,10 @@ export const MEDIA_USAGE_TYPES = [
   "PROFILE_COVER",
   "POST_IMAGE",
   "WORK_IMAGE",
+  "FREELANCE_SERVICE_IMAGE",
 ] as const;
 export type MediaUsageType = (typeof MEDIA_USAGE_TYPES)[number];
-export type MediaUploadPurpose = "avatar" | "cover" | "post" | "work";
+export type MediaUploadPurpose = "avatar" | "cover" | "post" | "work" | "freelance";
 export type MediaAsset = {
   id: string; url: string; contentType: string; sizeBytes: number;
   usageType: MediaUsageType; displayOrder: number | null; createdAt: string;
