@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
 import com.aksiyoncuk.freelance.exception.FreelanceException;
 import com.aksiyoncuk.media.service.MediaService;
+import com.aksiyoncuk.media.storage.MediaStorage;
 import com.aksiyoncuk.messaging.service.MessagingService;
 import com.aksiyoncuk.notification.service.NotificationService;
 import com.aksiyoncuk.user.repository.UserRepository;
@@ -29,7 +30,9 @@ class FreelanceMarketplaceServiceTest {
             mock(UserRepository.class),
             mock(NotificationService.class),
             mock(MessagingService.class),
-            mock(MediaService.class));
+            mock(MediaService.class),
+            mock(MediaStorage.class),
+            new DeliveryAttachmentValidator());
   }
 
   @Test

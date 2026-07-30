@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiRequest } from "@/services/api/apiClient";
+import { ApiError, apiDownload, apiRequest } from "@/services/api/apiClient";
 import { freelanceService } from "@/services/api/freelance.service";
 vi.mock("@/services/api/apiClient", async (original) => ({
-  ...(await original<typeof import("@/services/api/apiClient")>()), apiRequest: vi.fn(),
+  ...(await original<typeof import("@/services/api/apiClient")>()), apiRequest: vi.fn(), apiDownload: vi.fn(),
 }));
 const request = vi.mocked(apiRequest);
+const download = vi.mocked(apiDownload);
 describe("freelanceService", () => {
   beforeEach(() => request.mockReset().mockResolvedValue({}));
   it("uses exact category and safely encoded service paths", async () => {
@@ -30,6 +31,26 @@ describe("freelanceService", () => {
     await freelanceService.createOrder(body);
     expect(request).toHaveBeenLastCalledWith("/freelance/orders", { method: "POST", authenticated: true, body });
     expect(JSON.stringify(body)).not.toMatch(/price|seller|buyer/i);
+  });
+  it("delivers JSON and repeated files as multipart without a manual boundary", async () => {
+    const first = new File(["a"], "a.txt", { type: "text/plain" });
+    const second = new File(["b"], "b.txt", { type: "text/plain" });
+    await freelanceService.deliverOrder("order/id", { message: "Delivery message", files: [first, second] });
+    const [path, options] = request.mock.calls.at(-1)!;
+    expect(path).toBe("/freelance/orders/order%2Fid/deliver");
+    const form = options?.body as FormData;
+    expect(form).toBeInstanceOf(FormData);
+    expect(form.getAll("files")).toEqual([first, second]);
+    expect((form.get("request") as Blob).type).toBe("application/json");
+    expect(options?.headers).toBeUndefined();
+  });
+  it("downloads through the authenticated backend endpoint", async () => {
+    download.mockResolvedValueOnce({ blob: new Blob(["x"]), contentDisposition: null });
+    await freelanceService.downloadDeliveryAttachment("order", "delivery", "attachment");
+    expect(download).toHaveBeenCalledWith(
+      "/freelance/orders/order/deliveries/delivery/attachments/attachment/download",
+      { authenticated: true },
+    );
   });
   it("maps revision and cancellation actions and preserves ApiError", async () => {
     await freelanceService.acknowledgeRevision("order/a", "revision/a");

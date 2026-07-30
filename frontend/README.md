@@ -1,5 +1,11 @@
 # Aksiyoncuk frontend
 
+## Private freelance delivery attachments
+
+The delivery/redelivery dialog accepts up to five JPEG, PNG, WebP, PDF, plain-text, or ZIP files (25 MB each, 75 MB total). It submits the message as a JSON multipart part plus repeated file parts. `File` and `Blob` values are never stored in Zustand or browser storage. Delivery history groups attachments with their immutable delivery, and downloads use the centralized authenticated API client, a temporary Blob URL, and a sanitized filename; no MinIO URL is rendered. Static-export routing is unchanged.
+
+Client checks provide early feedback, while the backend remains authoritative and validates content signatures. No malware-scanning guarantee is made.
+
 ## Local setup
 
 Requirements: Node.js, npm, the Spring Boot API on port 8080, and the

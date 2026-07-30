@@ -10,6 +10,7 @@ public record MediaProperties(
     String accessKey,
     String secretKey,
     String bucket,
+    String privateBucket,
     URI publicBaseUrl,
     boolean pathStyleAccess,
     long avatarMaxBytes,

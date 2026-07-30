@@ -128,7 +128,19 @@ public final class FreelanceDtos {
 
   public record ReviewRequest(Integer rating, String comment) {}
 
-  public record Delivery(UUID id, String message, Instant createdAt) {}
+  public record DeliveryAttachment(
+      UUID id,
+      String filename,
+      String contentType,
+      long sizeBytes,
+      int displayOrder,
+      Instant createdAt) {}
+
+  public record Delivery(
+      UUID id, String message, Instant createdAt, List<DeliveryAttachment> attachments) {}
+
+  public record AttachmentDownload(
+      String filename, String contentType, long sizeBytes, byte[] content) {}
 
   public record Revision(
       UUID id, String reason, int sequenceNumber, Instant acknowledgedAt, Instant createdAt) {}

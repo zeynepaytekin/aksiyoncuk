@@ -170,7 +170,7 @@ class NetworkIntegrationTest {
                 where success order by installed_rank desc limit 1
                 """,
                 String.class))
-        .isEqualTo("15");
+        .isEqualTo("16");
   }
 
   private org.springframework.test.web.servlet.ResultActions follow(String username, String token)

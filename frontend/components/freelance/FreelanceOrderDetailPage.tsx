@@ -10,12 +10,20 @@ import { freelanceErrorMessage } from "@/services/api/freelanceErrorMessage";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useFreelanceStore } from "@/store/freelance.store";
 import { formatMarketplaceDate, formatMoney } from "@/utils/formatFreelance";
+import {
+  readableFileSize,
+  safeDownloadFilename,
+  validateDeliveryAttachments,
+} from "@/utils/freelanceDeliveryAttachments";
 import FreelanceCancellationHistory from "./FreelanceCancellationHistory";
 type Dialog = "deliver" | "revision" | "cancel" | "reject" | "review" | null;
 function Content() {
   const params = useSearchParams(), router = useRouter(), id = params.get("order") ?? "", { user, isLoading } = useRequireAuth(), store = useFreelanceStore();
   const loadOrder = useFreelanceStore((state) => state.loadOrder);
   const [dialog, setDialog] = useState<Dialog>(null), [text, setText] = useState(""), [rating, setRating] = useState(5), [error, setError] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState("");
+  const [downloading, setDownloading] = useState<string | null>(null);
   useEffect(() => { if (user && id) void loadOrder(id).catch(() => undefined); }, [user, id, loadOrder]);
   if (isLoading || !user) return <main className="p-8">Loading…</main>;
   const order = store.selectedOrder?.id === id ? store.selectedOrder : null;
@@ -26,17 +34,32 @@ function Content() {
   const pending = store.mutations[`order:${order.id}`] === "loading" || store.mutations[`review:${order.id}`] === "loading";
   const revision = order.revisions.find((r) => !r.acknowledgedAt);
   async function run(request: () => Promise<typeof currentOrder>) {
-    setError(""); try { await store.runOrderAction(`order:${currentOrder.id}`, request); setDialog(null); setText(""); }
-    catch (e) { setError(freelanceErrorMessage(e)); if ((e as { status?: number }).status === 409) void store.loadOrder(currentOrder.id).catch(() => undefined); }
+    setError(""); try { await store.runOrderAction(`order:${currentOrder.id}`, request); setDialog(null); setText(""); return true; }
+    catch (e) { setError(freelanceErrorMessage(e)); if ((e as { status?: number }).status === 409) void store.loadOrder(currentOrder.id).catch(() => undefined); return false; }
   }
   async function contact() { const conversation = await freelanceService.openServiceConversation(currentOrder.serviceId); router.push(`/messages?conversation=${conversation.id}`); }
+  async function download(deliveryId: string, attachmentId: string, filename: string) {
+    setDownloading(attachmentId); setError("");
+    try {
+      const result = await freelanceService.downloadDeliveryAttachment(currentOrder.id, deliveryId, attachmentId);
+      const url = URL.createObjectURL(result.blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = safeDownloadFilename(result.contentDisposition, filename);
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (cause) { setError(freelanceErrorMessage(cause)); }
+    finally { setDownloading(null); }
+  }
   const cancellation = order.pendingCancellation, requester = cancellation?.requestedRole === (buyer ? "BUYER" : "SELLER");
   return <main className="mx-auto min-w-0 max-w-5xl space-y-6 overflow-x-hidden px-4 py-8"><header className="flex flex-wrap justify-between gap-4"><div className="min-w-0"><span className="break-all text-sm text-gray-500">{order.orderNumber}</span><h1 className="break-words text-2xl font-bold sm:text-3xl">{order.serviceTitle}</h1><p>{buyer ? `Seller: ${order.seller.fullName || order.seller.username}` : `Buyer: ${order.buyer.fullName || order.buyer.username}`}</p></div><Badge>{order.status}</Badge></header>
     <Card><h2 className="text-xl font-bold">Package snapshot</h2><div className="mt-3 grid gap-2 sm:grid-cols-3"><p><strong>{order.packageTier}: {order.packageName}</strong><br />{order.packageDescription}</p><p>{formatMoney(order.priceAmount, order.currencyCode)}<br />{order.deliveryDays} days</p><p>Revisions {order.usedRevisionCount}/{order.includedRevisionCount}<br />Due: {formatMarketplaceDate(order.deliveryDueAt)}</p></div>
       <p className="mt-4 rounded-lg bg-gray-50 p-3 text-sm font-medium">This order is not a paid status. No payment is processed in this phase.</p></Card>
     <Card><h2 className="text-xl font-bold">Buyer requirements</h2><p className="mt-2 whitespace-pre-wrap">{order.buyerRequirements}</p></Card>
     <section><h2 className="text-xl font-bold">Timeline</h2><div className="mt-3 space-y-3 border-l-2 pl-5"><p>Created · {formatMarketplaceDate(order.createdAt)}</p>{order.startedAt && <p>Started · {formatMarketplaceDate(order.startedAt)}</p>}
-      {order.deliveries.map((delivery) => <Card key={delivery.id}><strong>Delivery · {formatMarketplaceDate(delivery.createdAt)}</strong><p className="mt-2 whitespace-pre-wrap">{delivery.message}</p></Card>)}
+      {order.deliveries.map((delivery, index) => <Card key={delivery.id}><strong>Delivery {index + 1} · {formatMarketplaceDate(delivery.createdAt)}</strong><p className="mt-2 whitespace-pre-wrap">{delivery.message}</p>
+        {delivery.attachments.length > 0 && <ul className="mt-3 space-y-2" aria-label={`Delivery ${index + 1} attachments`}>{delivery.attachments.map((attachment) => <li key={attachment.id} className="flex min-w-0 flex-col gap-2 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between"><span className="min-w-0 break-all text-sm"><strong>{attachment.filename}</strong><br />{attachment.contentType} · {readableFileSize(attachment.sizeBytes)}</span><Button variant="secondary" isLoading={downloading === attachment.id} disabled={downloading === attachment.id} aria-label={`Download ${attachment.filename}`} onClick={() => void download(delivery.id, attachment.id, attachment.filename)}>Download</Button></li>)}</ul>}
+      </Card>)}
       {order.revisions.map((item) => <Card key={item.id}><strong>Revision {item.sequenceNumber} · {formatMarketplaceDate(item.createdAt)}</strong><p>{item.reason}</p><small>{item.acknowledgedAt ? `Acknowledged ${formatMarketplaceDate(item.acknowledgedAt)}` : "Awaiting acknowledgement"}</small></Card>)}
       <FreelanceCancellationHistory requests={order.cancellationHistory} />
       {order.completedAt && <p>Completed · {formatMarketplaceDate(order.completedAt)}</p>}{order.cancelledAt && <p>Cancelled · {formatMarketplaceDate(order.cancelledAt)}</p>}</div></section>
@@ -56,7 +79,7 @@ function Content() {
     <Modal isOpen={dialog !== null} onClose={() => setDialog(null)} title={dialog === "deliver" ? "Submit delivery" : dialog === "revision" ? "Request revision" : dialog === "cancel" ? "Request cancellation" : dialog === "review" ? "Review service" : "Reject order"}
       description={dialog === "cancel" ? "This changes order status only. No payment or refund is processed." : undefined}
       footer={<><Button variant="secondary" onClick={() => setDialog(null)}>Close</Button><Button disabled={dialog !== "review" && !text.trim()} isLoading={pending} onClick={() => {
-        if (dialog === "deliver") void run(() => freelanceService.deliverOrder(order.id, { message: text }));
+        if (dialog === "deliver") void run(() => freelanceService.deliverOrder(order.id, { message: text, files })).then((success) => { if (success) { setFiles([]); setFileError(""); } });
         if (dialog === "revision") void run(() => freelanceService.requestRevision(order.id, { reason: text }));
         if (dialog === "cancel") void run(() => freelanceService.requestCancellation(order.id, { reason: text }));
         if (dialog === "reject") void run(() => freelanceService.rejectOrder(order.id, { reason: text }));
@@ -64,6 +87,10 @@ function Content() {
       }}>Confirm</Button></>}>
       {dialog === "review" && <fieldset className="mb-4"><legend className="font-semibold">Rating</legend><div className="flex gap-3">{[1,2,3,4,5].map((value) => <label key={value}><input type="radio" name="rating" checked={rating === value} onChange={() => setRating(value)} /> {value}</label>)}</div></fieldset>}
       <label htmlFor="order-action-text" className="block font-semibold">{dialog === "deliver" ? "Delivery message" : dialog === "review" ? "Comment (optional)" : "Reason"}</label><textarea id="order-action-text" value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} className="mt-2 min-h-32 w-full rounded-xl border p-3" />
+      {dialog === "deliver" && <div className="mt-4"><label htmlFor="delivery-attachments" className="block font-semibold">Attachments (optional)</label><p id="delivery-attachment-help" className="text-sm text-gray-600">Up to 5 JPEG, PNG, WebP, PDF, text, or ZIP files; 25 MB each and 75 MB total. Files are private to order participants.</p><input id="delivery-attachments" className="mt-2 block w-full text-sm" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.zip,image/jpeg,image/png,image/webp,application/pdf,text/plain,application/zip" aria-describedby="delivery-attachment-help delivery-attachment-error" onChange={(event) => { const next = [...files, ...Array.from(event.target.files ?? [])]; const issue = validateDeliveryAttachments(next); setFileError(issue ?? ""); if (!issue) setFiles(next); event.target.value = ""; }} />
+        <p id="delivery-attachment-error" role="alert" aria-live="polite" className="mt-2 text-sm text-red-700">{fileError}</p>
+        <ul className="mt-2 space-y-2">{files.map((file, index) => <li key={`${file.name}-${file.size}-${index}`} className="flex min-w-0 items-center justify-between gap-3 rounded-lg bg-gray-50 p-2"><span className="min-w-0 break-all text-sm">{file.name} · {readableFileSize(file.size)}</span><Button variant="ghost" aria-label={`Remove ${file.name}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</Button></li>)}</ul>
+      </div>}
       {dialog === "revision" && <p className="mt-2 text-sm">{order.includedRevisionCount - order.usedRevisionCount} included revision(s) remaining.</p>}
     </Modal>
   </main>;

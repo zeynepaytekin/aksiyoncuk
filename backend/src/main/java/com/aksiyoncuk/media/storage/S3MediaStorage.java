@@ -66,6 +66,44 @@ public class S3MediaStorage implements MediaStorage {
     return URI.create(properties.publicBaseUrl().toString().replaceAll("/+$", "") + "/" + key);
   }
 
+  @Override
+  public void putPrivate(String key, byte[] content, String contentType, String filename) {
+    try {
+      client.putObject(
+          request ->
+              request
+                  .bucket(properties.privateBucket())
+                  .key(key)
+                  .contentType(contentType)
+                  .contentDisposition("attachment")
+                  .cacheControl("private, no-store")
+                  .metadata(java.util.Map.of("x-content-type-options", "nosniff")),
+          RequestBody.fromBytes(content));
+    } catch (S3Exception exception) {
+      throw unavailable("Private media storage is unavailable", exception);
+    }
+  }
+
+  @Override
+  public byte[] getPrivate(String key) {
+    try {
+      return client
+          .getObjectAsBytes(request -> request.bucket(properties.privateBucket()).key(key))
+          .asByteArray();
+    } catch (S3Exception exception) {
+      throw unavailable("Private media download is unavailable", exception);
+    }
+  }
+
+  @Override
+  public void deletePrivate(String key) {
+    try {
+      client.deleteObject(request -> request.bucket(properties.privateBucket()).key(key));
+    } catch (S3Exception exception) {
+      throw unavailable("Private media cleanup could not be completed", exception);
+    }
+  }
+
   private MediaException unavailable(String message, Exception cause) {
     return new MediaException(
         HttpStatus.SERVICE_UNAVAILABLE, "MEDIA_STORAGE_UNAVAILABLE", message, cause);

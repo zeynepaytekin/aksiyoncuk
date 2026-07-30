@@ -1263,6 +1263,12 @@ scanning/transcoding jobs, rendition manifests, CDN delivery, and authorization
 appropriate for streaming; it should not overload this image upload path.
 # Freelance Marketplace Phase 1
 
+## Private delivery attachments
+
+Deliveries and redeliveries may include up to five private JPEG, PNG, WebP, PDF, plain-text, or ZIP files, limited to 25 MB each and 75 MB total. They are stored in the non-public `app.media.private-bucket`, remain associated with immutable delivery history, and are listed or downloaded only after buyer/seller authorization. Downloads are proxied by the authenticated backend; responses never contain bucket names, storage keys, or public object URLs.
+
+The multipart delivery action uses an `application/json` `request` part and repeated `files` parts. Supported binary formats receive signature checks in addition to MIME and extension validation. Uploaded objects are compensated when an upload or database transaction fails. This validation is not malware scanning and provides no malware-safety guarantee.
+
 The Phase 1 marketplace is implemented under `/api/v1/freelance`. It reuses the existing users,
 profiles, works, media storage, direct messaging, notifications, authentication, and structured
 API error response. No payment provider, escrow, wallet, refund, tax, invoice, commission, or

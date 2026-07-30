@@ -5,6 +5,7 @@ import static com.aksiyoncuk.freelance.dto.FreelanceDtos.*;
 import com.aksiyoncuk.auth.security.AuthenticatedUser;
 import com.aksiyoncuk.freelance.exception.FreelanceException;
 import com.aksiyoncuk.media.service.MediaService;
+import com.aksiyoncuk.media.storage.MediaStorage;
 import com.aksiyoncuk.messaging.dto.StartConversationRequest;
 import com.aksiyoncuk.messaging.dto.StartConversationResult;
 import com.aksiyoncuk.messaging.service.MessagingService;
@@ -26,6 +27,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class FreelanceMarketplaceService {
@@ -45,18 +49,24 @@ public class FreelanceMarketplaceService {
   private final NotificationService notifications;
   private final MessagingService messaging;
   private final MediaService media;
+  private final MediaStorage storage;
+  private final DeliveryAttachmentValidator attachmentValidator;
 
   public FreelanceMarketplaceService(
       JdbcTemplate jdbc,
       UserRepository users,
       NotificationService notifications,
       MessagingService messaging,
-      MediaService media) {
+      MediaService media,
+      MediaStorage storage,
+      DeliveryAttachmentValidator attachmentValidator) {
     this.jdbc = jdbc;
     this.users = users;
     this.notifications = notifications;
     this.messaging = messaging;
     this.media = media;
+    this.storage = storage;
+    this.attachmentValidator = attachmentValidator;
   }
 
   @Transactional(readOnly = true)
@@ -399,6 +409,12 @@ public class FreelanceMarketplaceService {
 
   @Transactional
   public OrderResponse deliver(UUID id, AuthenticatedUser principal, DeliveryRequest request) {
+    return deliver(id, principal, request, List.of());
+  }
+
+  @Transactional
+  public OrderResponse deliver(
+      UUID id, AuthenticatedUser principal, DeliveryRequest request, List<MultipartFile> files) {
     var row = lockOrder(id);
     seller(row, principal.userId());
     requireState(row, "IN_PROGRESS", "FREELANCE_ORDER_NOT_DELIVERABLE");
@@ -409,12 +425,61 @@ public class FreelanceMarketplaceService {
             5000,
             "FREELANCE_ORDER_NOT_DELIVERABLE",
             "Delivery message must contain 10 to 5000 characters");
+    var attachments = attachmentValidator.validate(files);
+    var deliveryId = UUID.randomUUID();
     jdbc.update(
         "INSERT INTO freelance_order_deliveries(id,order_id,submitted_by_user_id,message) VALUES (?,?,?,?)",
-        UUID.randomUUID(),
+        deliveryId,
         id,
         principal.userId(),
         message);
+    var uploaded = new ArrayList<String>();
+    try {
+      for (int index = 0; index < attachments.size(); index++) {
+        var attachment = attachments.get(index);
+        var attachmentId = UUID.randomUUID();
+        var key =
+            "private/freelance/deliveries/"
+                + id
+                + "/"
+                + deliveryId
+                + "/"
+                + attachmentId
+                + "-"
+                + attachment.sanitizedFilename();
+        storage.putPrivate(
+            key, attachment.bytes(), attachment.contentType(), attachment.sanitizedFilename());
+        uploaded.add(key);
+        jdbc.update(
+            """
+            INSERT INTO freelance_delivery_attachments(
+              id,delivery_id,order_id,storage_key,original_filename,sanitized_filename,
+              content_type,size_bytes,display_order)
+            VALUES (?,?,?,?,?,?,?,?,?)
+            """,
+            attachmentId,
+            deliveryId,
+            id,
+            key,
+            attachment.originalFilename(),
+            attachment.sanitizedFilename(),
+            attachment.contentType(),
+            attachment.bytes().length,
+            index);
+      }
+    } catch (RuntimeException exception) {
+      cleanupPrivate(uploaded);
+      throw exception;
+    }
+    if (!uploaded.isEmpty()) {
+      TransactionSynchronizationManager.registerSynchronization(
+          new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+              if (status != STATUS_COMMITTED) cleanupPrivate(uploaded);
+            }
+          });
+    }
     jdbc.update(
         "UPDATE freelance_orders SET status='DELIVERED',delivered_at=current_timestamp,updated_at=current_timestamp,version=version+1 WHERE id=?",
         id);
@@ -426,6 +491,55 @@ public class FreelanceMarketplaceService {
         id,
         "Your freelance order was delivered.");
     return order(id, principal.userId());
+  }
+
+  @Transactional(readOnly = true)
+  public List<DeliveryAttachment> deliveryAttachments(
+      UUID orderId, UUID deliveryId, AuthenticatedUser principal) {
+    var row = basicOrder(orderId);
+    party(row, principal.userId());
+    requireDelivery(orderId, deliveryId);
+    return attachmentRows(orderId, deliveryId);
+  }
+
+  @Transactional(readOnly = true)
+  public AttachmentDownload downloadAttachment(
+      UUID orderId, UUID deliveryId, UUID attachmentId, AuthenticatedUser principal) {
+    var row = basicOrder(orderId);
+    party(row, principal.userId());
+    requireDelivery(orderId, deliveryId);
+    var records =
+        jdbc.query(
+            """
+            SELECT storage_key,original_filename,content_type,size_bytes
+            FROM freelance_delivery_attachments
+            WHERE id=? AND delivery_id=? AND order_id=?
+            """,
+            (rs, n) ->
+                new Object[] {
+                  rs.getString("storage_key"),
+                  rs.getString("original_filename"),
+                  rs.getString("content_type"),
+                  rs.getLong("size_bytes")
+                },
+            attachmentId,
+            deliveryId,
+            orderId);
+    if (records.isEmpty())
+      throw notFound("FREELANCE_ATTACHMENT_NOT_FOUND", "Delivery attachment was not found");
+    var record = records.getFirst();
+    try {
+      return new AttachmentDownload(
+          (String) record[1],
+          (String) record[2],
+          (long) record[3],
+          storage.getPrivate((String) record[0]));
+    } catch (RuntimeException exception) {
+      throw new FreelanceException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          "FREELANCE_ATTACHMENT_DOWNLOAD_UNAVAILABLE",
+          "Attachment download is temporarily unavailable");
+    }
   }
 
   @Transactional
@@ -942,11 +1056,21 @@ public class FreelanceMarketplaceService {
   private OrderResponse order(UUID id, UUID viewer) {
     var row = basicOrder(id);
     party(row, viewer);
+    var attachmentRows = attachmentRowRecords(id, null);
+    var attachmentsByDelivery =
+        attachmentRows.stream()
+            .collect(java.util.stream.Collectors.groupingBy(DeliveryAttachmentRow::deliveryId));
     var deliveries =
         jdbc.query(
             "SELECT id,message,created_at FROM freelance_order_deliveries WHERE order_id=? ORDER BY created_at,id",
             (rs, n) ->
-                new Delivery(uuid(rs, "id"), rs.getString("message"), instant(rs, "created_at")),
+                new Delivery(
+                    uuid(rs, "id"),
+                    rs.getString("message"),
+                    instant(rs, "created_at"),
+                    attachmentsByDelivery.getOrDefault(uuid(rs, "id"), List.of()).stream()
+                        .map(DeliveryAttachmentRow::attachment)
+                        .toList()),
             id);
     var revisions =
         jdbc.query(
@@ -1375,6 +1499,59 @@ public class FreelanceMarketplaceService {
       throw forbidden("FREELANCE_ORDER_ACCESS_FORBIDDEN", "Order access is forbidden");
   }
 
+  private void requireDelivery(UUID orderId, UUID deliveryId) {
+    var count =
+        jdbc.queryForObject(
+            "SELECT count(*) FROM freelance_order_deliveries WHERE id=? AND order_id=?",
+            Integer.class,
+            deliveryId,
+            orderId);
+    if (count == null || count == 0)
+      throw notFound("FREELANCE_DELIVERY_NOT_FOUND", "Delivery was not found");
+  }
+
+  private List<DeliveryAttachment> attachmentRows(UUID orderId, UUID deliveryId) {
+    return attachmentRowRecords(orderId, deliveryId).stream()
+        .map(DeliveryAttachmentRow::attachment)
+        .toList();
+  }
+
+  private List<DeliveryAttachmentRow> attachmentRowRecords(UUID orderId, UUID deliveryId) {
+    var sql =
+        """
+        SELECT delivery_id,id,original_filename,content_type,size_bytes,display_order,created_at
+        FROM freelance_delivery_attachments
+        WHERE order_id=?
+        """
+            + (deliveryId == null ? "" : " AND delivery_id=?")
+            + " ORDER BY delivery_id,display_order,id";
+    Object[] arguments =
+        deliveryId == null ? new Object[] {orderId} : new Object[] {orderId, deliveryId};
+    return jdbc.query(
+        sql,
+        (rs, n) ->
+            new DeliveryAttachmentRow(
+                uuid(rs, "delivery_id"),
+                new DeliveryAttachment(
+                    uuid(rs, "id"),
+                    rs.getString("original_filename"),
+                    rs.getString("content_type"),
+                    rs.getLong("size_bytes"),
+                    rs.getInt("display_order"),
+                    instant(rs, "created_at"))),
+        arguments);
+  }
+
+  private void cleanupPrivate(Collection<String> keys) {
+    for (var key : keys) {
+      try {
+        storage.deletePrivate(key);
+      } catch (RuntimeException ignored) {
+        // Best-effort compensation. The failed transaction never exposes the orphaned key.
+      }
+    }
+  }
+
   private static void buyer(BasicOrder row, UUID actor) {
     if (!row.buyerId.equals(actor))
       throw forbidden("FREELANCE_ORDER_ACCESS_FORBIDDEN", "Buyer action is forbidden");
@@ -1550,4 +1727,6 @@ public class FreelanceMarketplaceService {
       long version) {}
 
   private record CancellationRow(UUID requesterId, String previousStatus) {}
+
+  private record DeliveryAttachmentRow(UUID deliveryId, DeliveryAttachment attachment) {}
 }

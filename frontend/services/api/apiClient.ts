@@ -150,3 +150,57 @@ export async function apiRequest<T>(
 
   return responseBody as T;
 }
+
+export type ApiDownload = {
+  blob: Blob;
+  contentDisposition: string | null;
+};
+
+export async function apiDownload(
+  path: string,
+  options: Omit<ApiRequestOptions, "body"> = {},
+): Promise<ApiDownload> {
+  const {
+    accessToken,
+    authenticated = true,
+    headers,
+    retried = false,
+    skipRefresh = false,
+    ...requestInit
+  } = options;
+  const token =
+    accessToken ?? (authenticated ? sessionCoordinator.getAccessToken() : null);
+  const requestHeaders = new Headers(headers);
+  if (token) requestHeaders.set("Authorization", `Bearer ${token}`);
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      ...requestInit,
+      headers: requestHeaders,
+    });
+  } catch (cause) {
+    throw new ApiError(0, "NETWORK_ERROR", "Unable to reach the API service.", [], {
+      cause,
+    });
+  }
+  if (response.status === 401 && authenticated && !skipRefresh && !retried) {
+    const newToken = await sessionCoordinator.refreshAccessToken();
+    if (newToken) {
+      return apiDownload(path, { ...options, accessToken: newToken, retried: true });
+    }
+    sessionCoordinator.clearSession();
+  }
+  if (!response.ok) {
+    const parsed = parseError(await readBody(response));
+    throw new ApiError(
+      response.status,
+      parsed?.code ?? `HTTP_${response.status}`,
+      parsed?.message ?? "The download could not be completed.",
+      parsed?.fieldErrors,
+    );
+  }
+  return {
+    blob: await response.blob(),
+    contentDisposition: response.headers.get("Content-Disposition"),
+  };
+}

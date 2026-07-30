@@ -132,7 +132,20 @@ export type FreelanceSearchFilters = {
   sort?: FreelanceSearchSort;
 };
 
-export type FreelanceDelivery = { id: string; message: string; createdAt: string };
+export type FreelanceDeliveryAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  displayOrder: number;
+  createdAt: string;
+};
+export type FreelanceDelivery = {
+  id: string;
+  message: string;
+  createdAt: string;
+  attachments: FreelanceDeliveryAttachment[];
+};
 export type FreelanceRevisionRequest = {
   id: string;
   reason: string;
@@ -215,7 +228,7 @@ export type ReorderFreelanceMediaRequest = { mediaIds: string[] };
 export type UpdateFreelanceWorksRequest = { workIds: string[] };
 export type CreateFreelanceOrderRequest = { serviceId: string; packageId: string; requirements: string };
 export type FreelanceReasonRequest = { reason: string };
-export type FreelanceDeliveryRequest = { message: string };
+export type FreelanceDeliveryRequest = { message: string; files?: File[] };
 export type CreateFreelanceReviewRequest = { rating: number; comment: string | null };
 export type FreelanceOrderFilters = { status?: FreelanceOrderStatus; page?: number; size?: number };
 export type FreelanceConversation = Conversation;

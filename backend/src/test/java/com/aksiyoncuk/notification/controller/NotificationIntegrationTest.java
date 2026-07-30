@@ -193,7 +193,7 @@ class NotificationIntegrationTest {
             jdbc.queryForObject(
                 "select version from flyway_schema_history where success order by installed_rank desc limit 1",
                 String.class))
-        .isEqualTo("15");
+        .isEqualTo("16");
   }
 
   private ResultActions list(String token, String type) throws Exception {

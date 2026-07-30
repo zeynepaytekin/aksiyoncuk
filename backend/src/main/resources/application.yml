@@ -1,8 +1,8 @@
 spring:
   servlet:
     multipart:
-      max-file-size: 15MB
-      max-request-size: 16MB
+      max-file-size: 25MB
+      max-request-size: 76MB
   application:
     name: aksiyoncuk-backend
   autoconfigure:
@@ -48,6 +48,7 @@ app:
     access-key: ${MEDIA_STORAGE_ACCESS_KEY:test-only-access-key}
     secret-key: ${MEDIA_STORAGE_SECRET_KEY:test-only-secret-key}
     bucket: ${MEDIA_STORAGE_BUCKET:aksiyoncuk-media}
+    private-bucket: ${MEDIA_PRIVATE_STORAGE_BUCKET:aksiyoncuk-private}
     public-base-url: ${MEDIA_PUBLIC_BASE_URL:http://localhost:9000/aksiyoncuk-media}
     path-style-access: ${MEDIA_PATH_STYLE_ACCESS:true}
     avatar-max-bytes: ${MEDIA_AVATAR_MAX_BYTES:5242880}

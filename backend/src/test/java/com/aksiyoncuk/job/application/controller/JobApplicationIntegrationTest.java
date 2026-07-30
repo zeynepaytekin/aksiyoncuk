@@ -223,7 +223,7 @@ class JobApplicationIntegrationTest {
             jdbc.queryForObject(
                 "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1",
                 String.class))
-        .isEqualTo("15");
+        .isEqualTo("16");
   }
 
   private ResultActions apply(String token, UUID id, String letter) throws Exception {

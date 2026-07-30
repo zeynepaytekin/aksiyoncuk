@@ -219,7 +219,47 @@ class FreelanceMarketplaceIntegrationTest {
 
     order = action(orderId, "start", sellerToken, null);
     assertThat(order.path("deliveryDueAt").isTextual()).isTrue();
-    order = action(orderId, "deliver", sellerToken, Map.of("message", "Initial delivery message"));
+    var requestPart =
+        new MockMultipartFile(
+            "request",
+            "",
+            MediaType.APPLICATION_JSON_VALUE,
+            mapper.writeValueAsBytes(Map.of("message", "Initial delivery message")));
+    var textPart =
+        new MockMultipartFile(
+            "files",
+            "delivery.txt",
+            MediaType.TEXT_PLAIN_VALUE,
+            "private delivery".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    var deliveryResult =
+        mvc.perform(
+                multipart("/api/v1/freelance/orders/{id}/deliver", orderId)
+                    .file(requestPart)
+                    .file(textPart)
+                    .header("Authorization", bearer(sellerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.deliveries[0].attachments[0].filename").value("delivery.txt"))
+            .andExpect(jsonPath("$.deliveries[0].attachments[0].storageKey").doesNotExist())
+            .andExpect(jsonPath("$.deliveries[0].attachments[0].publicUrl").doesNotExist())
+            .andReturn();
+    order = mapper.readTree(deliveryResult.getResponse().getContentAsString());
+    var deliveryId = order.path("deliveries").get(0).path("id").asText();
+    var attachmentId =
+        order.path("deliveries").get(0).path("attachments").get(0).path("id").asText();
+    var downloadPath =
+        "/api/v1/freelance/orders/"
+            + orderId
+            + "/deliveries/"
+            + deliveryId
+            + "/attachments/"
+            + attachmentId
+            + "/download";
+    mvc.perform(get(downloadPath).header("Authorization", bearer(buyerToken)))
+        .andExpect(status().isOk())
+        .andExpect(
+            content().bytes("private delivery".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    mvc.perform(get(downloadPath).header("Authorization", bearer(outsiderToken)))
+        .andExpect(status().isForbidden());
     order =
         action(orderId, "revisions", buyerToken, Map.of("reason", "Please revise this delivery"));
     var revisionId = order.path("revisions").get(0).path("id").asText();
@@ -468,6 +508,7 @@ class FreelanceMarketplaceIntegrationTest {
     MediaStorage mediaStorage() {
       return new MediaStorage() {
         private final Set<String> keys = ConcurrentHashMap.newKeySet();
+        private final Map<String, byte[]> privateObjects = new ConcurrentHashMap<>();
 
         public void put(String key, byte[] content, String contentType, String filename) {
           keys.add(key);
@@ -483,6 +524,18 @@ class FreelanceMarketplaceIntegrationTest {
 
         public URI resolvePublicUrl(String key) {
           return URI.create("http://media.test/" + key);
+        }
+
+        public void putPrivate(String key, byte[] content, String contentType, String filename) {
+          privateObjects.put(key, content);
+        }
+
+        public byte[] getPrivate(String key) {
+          return privateObjects.get(key);
+        }
+
+        public void deletePrivate(String key) {
+          privateObjects.remove(key);
         }
       };
     }

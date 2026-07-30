@@ -11,9 +11,13 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/freelance")
@@ -193,13 +197,54 @@ public class FreelanceMarketplaceController {
     return marketplace.reject(orderId, principal, request);
   }
 
-  @PostMapping("/orders/{orderId}/deliver")
+  @PostMapping(path = "/orders/{orderId}/deliver", consumes = MediaType.APPLICATION_JSON_VALUE)
   @SecurityRequirement(name = "bearerAuth")
   OrderResponse deliver(
       @PathVariable UUID orderId,
       @AuthenticationPrincipal AuthenticatedUser principal,
       @RequestBody DeliveryRequest request) {
     return marketplace.deliver(orderId, principal, request);
+  }
+
+  @PostMapping(path = "/orders/{orderId}/deliver", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @SecurityRequirement(name = "bearerAuth")
+  OrderResponse deliverWithAttachments(
+      @PathVariable UUID orderId,
+      @AuthenticationPrincipal AuthenticatedUser principal,
+      @RequestPart("request") DeliveryRequest request,
+      @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+    return marketplace.deliver(orderId, principal, request, files == null ? List.of() : files);
+  }
+
+  @GetMapping("/orders/{orderId}/deliveries/{deliveryId}/attachments")
+  @SecurityRequirement(name = "bearerAuth")
+  List<DeliveryAttachment> deliveryAttachments(
+      @PathVariable UUID orderId,
+      @PathVariable UUID deliveryId,
+      @AuthenticationPrincipal AuthenticatedUser principal) {
+    return marketplace.deliveryAttachments(orderId, deliveryId, principal);
+  }
+
+  @GetMapping("/orders/{orderId}/deliveries/{deliveryId}/attachments/{attachmentId}/download")
+  @SecurityRequirement(name = "bearerAuth")
+  ResponseEntity<byte[]> downloadAttachment(
+      @PathVariable UUID orderId,
+      @PathVariable UUID deliveryId,
+      @PathVariable UUID attachmentId,
+      @AuthenticationPrincipal AuthenticatedUser principal) {
+    var download = marketplace.downloadAttachment(orderId, deliveryId, attachmentId, principal);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(download.contentType()))
+        .contentLength(download.sizeBytes())
+        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+        .header("X-Content-Type-Options", "nosniff")
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            ContentDisposition.attachment()
+                .filename(download.filename(), java.nio.charset.StandardCharsets.UTF_8)
+                .build()
+                .toString())
+        .body(download.content());
   }
 
   @PostMapping("/orders/{orderId}/revisions")

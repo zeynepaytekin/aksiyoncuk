@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiDownload, apiRequest } from "./apiClient";
 import type { MediaAsset, MediaListItem } from "@/types/media";
 import type {
   CreateFreelanceOrderRequest, CreateFreelanceReviewRequest, CreateFreelanceServiceRequest,
@@ -67,8 +67,30 @@ export const freelanceService = {
   startOrder: (orderId: string) => action(`${orderPath(orderId)}/start`),
   rejectOrder: (orderId: string, body: FreelanceReasonRequest) =>
     apiRequest<FreelanceOrder>(`${orderPath(orderId)}/reject`, { method: "POST", authenticated: true, body }),
-  deliverOrder: (orderId: string, body: FreelanceDeliveryRequest) =>
-    apiRequest<FreelanceOrder>(`${orderPath(orderId)}/deliver`, { method: "POST", authenticated: true, body }),
+  deliverOrder: (orderId: string, body: FreelanceDeliveryRequest) => {
+    const form = new FormData();
+    form.append(
+      "request",
+      new Blob([JSON.stringify({ message: body.message })], {
+        type: "application/json",
+      }),
+    );
+    body.files?.forEach((file) => form.append("files", file));
+    return apiRequest<FreelanceOrder>(`${orderPath(orderId)}/deliver`, {
+      method: "POST",
+      authenticated: true,
+      body: form,
+    });
+  },
+  downloadDeliveryAttachment: (
+    orderId: string,
+    deliveryId: string,
+    attachmentId: string,
+  ) =>
+    apiDownload(
+      `${orderPath(orderId)}/deliveries/${encoded(deliveryId)}/attachments/${encoded(attachmentId)}/download`,
+      { authenticated: true },
+    ),
   requestRevision: (orderId: string, body: FreelanceReasonRequest) =>
     apiRequest<FreelanceOrder>(`${orderPath(orderId)}/revisions`, { method: "POST", authenticated: true, body }),
   acknowledgeRevision: (orderId: string, revisionId: string) =>
