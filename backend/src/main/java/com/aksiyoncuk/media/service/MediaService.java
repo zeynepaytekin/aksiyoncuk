@@ -330,6 +330,10 @@ public class MediaService {
         : storage.resolvePublicUrl(asset.getStorageKey()).toString();
   }
 
+  public String publicUrl(String storageKey) {
+    return storageKey == null ? null : storage.resolvePublicUrl(storageKey).toString();
+  }
+
   @Transactional
   public void removePostMedia(UUID postId) {
     var relations = postMedia.findByPostIdOrderByDisplayOrderAscIdAsc(postId);

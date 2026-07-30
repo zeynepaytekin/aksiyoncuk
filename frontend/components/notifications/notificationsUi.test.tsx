@@ -179,5 +179,29 @@ describe("notifications UI", () => {
         entityId: null,
       }),
     ).toBeNull();
+    expect(
+      getNotificationHref({
+        ...notification,
+        type: "FREELANCE_ORDER_DELIVERED",
+        entityType: "FREELANCE_ORDER",
+        entityId: "order/id",
+      }),
+    ).toBe("/freelance/order?order=order%2Fid");
+    expect(
+      getNotificationHref({
+        ...notification,
+        type: "FREELANCE_REVIEW_RECEIVED",
+        entityType: "FREELANCE_SERVICE",
+        entityId: "service/id",
+      }),
+    ).toBe("/freelance/service?service=service%2Fid");
+    expect(
+      getNotificationHref({
+        ...notification,
+        type: "FREELANCE_ORDER_STARTED",
+        entityType: null,
+        entityId: "order/id",
+      }),
+    ).toBeNull();
   });
 });

@@ -206,10 +206,9 @@ public class FreelanceMarketplaceService {
   }
 
   @Transactional(readOnly = true)
-  public Page<ServiceSummary> mine(AuthenticatedUser principal, int page, int size) {
+  public Page<OwnedServiceSummary> mine(AuthenticatedUser principal, int page, int size) {
     pagination(page, size);
-    return searchPage(
-        "s.seller_user_id = ?", List.of(principal.userId()), page, size, "s.updated_at DESC,s.id");
+    return ownedServicePage(principal.userId(), page, size);
   }
 
   @Transactional(readOnly = true)
@@ -768,13 +767,24 @@ public class FreelanceMarketplaceService {
     var works =
         jdbc.query(
             """
-            SELECT w.id,w.title,sw.display_order FROM freelance_service_works sw
-            JOIN works w ON w.id=sw.work_id WHERE sw.service_id=?
+            SELECT w.id,w.title,thumbnail.storage_key,sw.display_order
+            FROM freelance_service_works sw
+            JOIN works w ON w.id=sw.work_id
+            LEFT JOIN LATERAL (
+              SELECT a.storage_key FROM work_media wm
+              JOIN media_assets a ON a.id=wm.media_asset_id
+              WHERE wm.work_id=w.id AND a.status='ACTIVE'
+              ORDER BY wm.display_order,wm.id LIMIT 1
+            ) thumbnail ON true
+            WHERE sw.service_id=?
             ORDER BY sw.display_order,sw.id
             """,
             (rs, n) ->
                 new WorkReference(
-                    uuid(rs, "id"), rs.getString("title"), rs.getInt("display_order")),
+                    uuid(rs, "id"),
+                    rs.getString("title"),
+                    media.publicUrl(rs.getString("storage_key")),
+                    rs.getInt("display_order")),
             id);
     return new ServiceResponse(
         base.id,
@@ -814,6 +824,12 @@ public class FreelanceMarketplaceService {
            SELECT min(price_amount) lowest_price,min(delivery_days) shortest_delivery
            FROM freelance_service_packages WHERE service_id=s.id AND active
          ) stats ON true
+         LEFT JOIN LATERAL (
+           SELECT a.storage_key FROM freelance_service_media sm
+           JOIN media_assets a ON a.id=sm.media_asset_id
+           WHERE sm.service_id=s.id AND a.status='ACTIVE'
+           ORDER BY sm.display_order,sm.id LIMIT 1
+         ) thumbnail ON true
         """;
     var total =
         jdbc.queryForObject(
@@ -828,7 +844,7 @@ public class FreelanceMarketplaceService {
             s.order_count,s.published_at,c.id category_id,c.parent_id,c.slug category_slug,
             c.name category_name,c.description category_description,c.display_order category_order,
             u.id seller_id,u.username,u.full_name,p.professional_title,
-            stats.lowest_price,stats.shortest_delivery
+            stats.lowest_price,stats.shortest_delivery,thumbnail.storage_key
             """
                 + joins
                 + " WHERE "
@@ -856,7 +872,7 @@ public class FreelanceMarketplaceService {
                         rs.getString("full_name"),
                         rs.getString("professional_title"),
                         null),
-                    null,
+                    media.publicUrl(rs.getString("storage_key")),
                     rs.getBigDecimal("lowest_price"),
                     "TRY",
                     (Integer) rs.getObject("shortest_delivery"),
@@ -865,6 +881,61 @@ public class FreelanceMarketplaceService {
                     rs.getInt("order_count"),
                     instant(rs, "published_at")),
             args.toArray());
+    return page(content, page, size, total == null ? 0 : total);
+  }
+
+  private Page<OwnedServiceSummary> ownedServicePage(UUID sellerId, int page, int size) {
+    var total =
+        jdbc.queryForObject(
+            "SELECT count(*) FROM freelance_services WHERE seller_user_id=?", Long.class, sellerId);
+    var content =
+        jdbc.query(
+            """
+            SELECT s.id,s.slug,s.title,s.status,s.average_rating,s.review_count,s.order_count,
+            s.updated_at,s.published_at,c.id category_id,c.parent_id,c.slug category_slug,
+            c.name category_name,c.description category_description,c.display_order category_order,
+            stats.lowest_price,thumbnail.storage_key
+            FROM freelance_services s
+            JOIN freelance_categories c ON c.id=s.category_id
+            LEFT JOIN LATERAL (
+              SELECT min(price_amount) lowest_price
+              FROM freelance_service_packages WHERE service_id=s.id AND active
+            ) stats ON true
+            LEFT JOIN LATERAL (
+              SELECT a.storage_key FROM freelance_service_media sm
+              JOIN media_assets a ON a.id=sm.media_asset_id
+              WHERE sm.service_id=s.id AND a.status='ACTIVE'
+              ORDER BY sm.display_order,sm.id LIMIT 1
+            ) thumbnail ON true
+            WHERE s.seller_user_id=?
+            ORDER BY s.updated_at DESC,s.id
+            LIMIT ? OFFSET ?
+            """,
+            (rs, n) ->
+                new OwnedServiceSummary(
+                    uuid(rs, "id"),
+                    rs.getString("slug"),
+                    rs.getString("title"),
+                    rs.getString("status"),
+                    media.publicUrl(rs.getString("storage_key")),
+                    new Category(
+                        uuid(rs, "category_id"),
+                        uuid(rs, "parent_id"),
+                        rs.getString("category_slug"),
+                        rs.getString("category_name"),
+                        rs.getString("category_description"),
+                        rs.getInt("category_order"),
+                        List.of()),
+                    rs.getBigDecimal("lowest_price"),
+                    "TRY",
+                    rs.getBigDecimal("average_rating"),
+                    rs.getInt("review_count"),
+                    rs.getInt("order_count"),
+                    instant(rs, "updated_at"),
+                    instant(rs, "published_at")),
+            sellerId,
+            size,
+            page * size);
     return page(content, page, size, total == null ? 0 : total);
   }
 
@@ -891,24 +962,35 @@ public class FreelanceMarketplaceService {
                     instant(rs, "acknowledged_at"),
                     instant(rs, "created_at")),
             id);
+    var cancellationHistory =
+        jdbc.query(
+            """
+            SELECT id,requested_role,reason,status,previous_order_status,
+            CASE
+              WHEN resolved_by_user_id=? THEN 'BUYER'
+              WHEN resolved_by_user_id=? THEN 'SELLER'
+              ELSE NULL
+            END resolver_role,
+            created_at,resolved_at
+            FROM freelance_order_cancellation_requests
+            WHERE order_id=? ORDER BY created_at,id
+            """,
+            (rs, n) ->
+                new Cancellation(
+                    uuid(rs, "id"),
+                    rs.getString("requested_role"),
+                    rs.getString("reason"),
+                    rs.getString("status"),
+                    rs.getString("previous_order_status"),
+                    rs.getString("resolver_role"),
+                    instant(rs, "created_at"),
+                    instant(rs, "resolved_at")),
+            row.buyerId,
+            row.sellerId,
+            id);
     var cancellation =
-        jdbc
-            .query(
-                """
-                SELECT id,requested_role,reason,status,previous_order_status,created_at,resolved_at
-                FROM freelance_order_cancellation_requests WHERE order_id=? AND status='PENDING'
-                """,
-                (rs, n) ->
-                    new Cancellation(
-                        uuid(rs, "id"),
-                        rs.getString("requested_role"),
-                        rs.getString("reason"),
-                        rs.getString("status"),
-                        rs.getString("previous_order_status"),
-                        instant(rs, "created_at"),
-                        instant(rs, "resolved_at")),
-                id)
-            .stream()
+        cancellationHistory.stream()
+            .filter(request -> "PENDING".equals(request.status()))
             .findFirst()
             .orElse(null);
     var reviewed =
@@ -942,6 +1024,7 @@ public class FreelanceMarketplaceService {
         deliveries,
         revisions,
         cancellation,
+        cancellationHistory,
         "COMPLETED".equals(row.status) && row.buyerId.equals(viewer) && !reviewed,
         row.createdAt,
         row.updatedAt);

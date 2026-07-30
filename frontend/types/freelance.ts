@@ -57,7 +57,12 @@ export type FreelanceServiceMedia = {
   sizeBytes: number | null;
   displayOrder: number;
 };
-export type FreelanceServiceWork = { id: string; title: string; displayOrder: number };
+export type FreelanceServiceWork = {
+  id: string;
+  title: string;
+  thumbnailUrl: string | null;
+  displayOrder: number;
+};
 export type FreelanceService = {
   id: string;
   slug: string;
@@ -97,7 +102,22 @@ export type FreelancePage<T> = {
   last: boolean;
 };
 export type FreelanceServicePage = FreelancePage<FreelanceServiceSummary>;
-export type FreelanceOwnedServicePage = FreelancePage<FreelanceService>;
+export type FreelanceOwnedServiceSummary = {
+  id: string;
+  slug: string;
+  title: string;
+  status: FreelanceServiceStatus;
+  thumbnailUrl: string | null;
+  category: FreelanceCategory;
+  lowestPrice: number | null;
+  currencyCode: string;
+  averageRating: number | null;
+  reviewCount: number;
+  orderCount: number;
+  updatedAt: string;
+  publishedAt: string | null;
+};
+export type FreelanceOwnedServicePage = FreelancePage<FreelanceOwnedServiceSummary>;
 export type FreelanceSearchFilters = {
   q?: string;
   category?: string;
@@ -126,6 +146,7 @@ export type FreelanceCancellationRequest = {
   reason: string;
   status: FreelanceCancellationStatus;
   previousOrderStatus: FreelanceOrderStatus;
+  resolverRole: FreelanceParticipantRole | null;
   createdAt: string;
   resolvedAt: string | null;
 };
@@ -154,6 +175,7 @@ export type FreelanceOrder = {
   deliveries: FreelanceDelivery[];
   revisions: FreelanceRevisionRequest[];
   pendingCancellation: FreelanceCancellationRequest | null;
+  cancellationHistory: FreelanceCancellationRequest[];
   reviewEligible: boolean;
   createdAt: string;
   updatedAt: string;

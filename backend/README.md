@@ -1270,6 +1270,17 @@ payout behavior exists. An order in `CREATED` state is explicitly **not paid**.
 
 ## Marketplace model
 
+Stabilized response guarantees:
+
+- `GET /api/v1/freelance/services/mine` returns owner-safe summaries containing
+  lifecycle status, category, primary public thumbnail, lowest active price,
+  aggregates, `updatedAt`, and `publishedAt` without per-listing queries.
+- Service work references contain a nullable public `thumbnailUrl`; storage keys
+  and bucket details are never serialized.
+- Order responses retain `pendingCancellation` and also expose deterministic
+  `cancellationHistory`, including rejected, withdrawn, and accepted requests
+  with safe requester/resolver roles.
+
 - Active, public categories are available from `GET /api/v1/freelance/categories`. V15 seeds
   stable Turkish slugs for design, animation, software, writing, audio, marketing, photography,
   stage arts, and film production.

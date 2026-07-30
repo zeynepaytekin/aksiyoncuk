@@ -29,6 +29,20 @@ describe("freelance store", () => {
     expect(useFreelanceStore.getState().selectedOrder?.status).toBe("IN_PROGRESS");
     expect(useFreelanceStore.getState().buyingOrders?.content[0].status).toBe("IN_PROGRESS");
   });
+  it("uses the owned summary response without detail N+1 requests", async () => {
+    const owned = {
+      id: "owned", slug: "owned", title: "Owned", status: "PAUSED", thumbnailUrl: null,
+      category: { id: "category", parentId: null, slug: "design", name: "Design", description: null, displayOrder: 1, children: [] },
+      lowestPrice: 100, currencyCode: "TRY", averageRating: null, reviewCount: 0,
+      orderCount: 0, updatedAt: "2026-01-01T00:00:00Z", publishedAt: null,
+    } as const;
+    vi.mocked(freelanceService.getMyServices).mockResolvedValue({
+      ...page("owned"), content: [owned],
+    } as never);
+    await useFreelanceStore.getState().loadMyServices();
+    expect(useFreelanceStore.getState().myServices?.content[0].status).toBe("PAUSED");
+    expect(freelanceService.getService).not.toHaveBeenCalled();
+  });
   it("clears private marketplace data on logout and has no persistence", () => {
     useFreelanceStore.setState({ selectedOrder: { id: "private" } as never, myServices: page("private") as never });
     freelanceStateCoordinator.authenticationChanged(false);

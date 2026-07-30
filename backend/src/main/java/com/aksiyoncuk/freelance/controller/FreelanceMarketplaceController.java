@@ -82,7 +82,7 @@ public class FreelanceMarketplaceController {
 
   @GetMapping("/services/mine")
   @SecurityRequirement(name = "bearerAuth")
-  Page<ServiceSummary> mine(
+  Page<OwnedServiceSummary> mine(
       @AuthenticationPrincipal AuthenticatedUser principal,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {

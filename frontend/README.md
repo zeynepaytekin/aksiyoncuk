@@ -140,6 +140,14 @@ stale-response protection and entity synchronization. It is deliberately not
 persisted in localStorage or sessionStorage; files and object URLs remain local to
 the editor.
 
+Owned listing summaries include lifecycle status, updated time, aggregates,
+category, lowest active price, and a public thumbnail, so the seller dashboard
+does not issue per-listing detail requests. Service work references may include a
+nullable public thumbnail. Order detail includes deterministically ordered
+cancellation history while retaining `pendingCancellation` for active controls.
+Resolved cancellation entries identify requester/resolver roles without exposing
+account contact or storage information.
+
 Exact user-facing limitation: “No payment is processed at this stage.”
 
 Phase 1 has no payment forms or processing, escrow, wallets, refunds, disputes,

@@ -10,6 +10,7 @@ import { freelanceErrorMessage } from "@/services/api/freelanceErrorMessage";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useFreelanceStore } from "@/store/freelance.store";
 import { formatMarketplaceDate, formatMoney } from "@/utils/formatFreelance";
+import FreelanceCancellationHistory from "./FreelanceCancellationHistory";
 type Dialog = "deliver" | "revision" | "cancel" | "reject" | "review" | null;
 function Content() {
   const params = useSearchParams(), router = useRouter(), id = params.get("order") ?? "", { user, isLoading } = useRequireAuth(), store = useFreelanceStore();
@@ -21,7 +22,8 @@ function Content() {
   if (!id || (!order && store.orderStatus !== "loading")) return <main className="p-8"><h1 className="text-2xl font-bold">Order unavailable</h1><p>{freelanceErrorMessage(store.orderError)}</p></main>;
   if (!order) return <main className="p-8">Loading order…</main>;
   const currentOrder = order;
-  const buyer = user.id === order.buyer.id, seller = user.id === order.seller.id, pending = Object.values(store.mutations).includes("loading");
+  const buyer = user.id === order.buyer.id, seller = user.id === order.seller.id;
+  const pending = store.mutations[`order:${order.id}`] === "loading" || store.mutations[`review:${order.id}`] === "loading";
   const revision = order.revisions.find((r) => !r.acknowledgedAt);
   async function run(request: () => Promise<typeof currentOrder>) {
     setError(""); try { await store.runOrderAction(`order:${currentOrder.id}`, request); setDialog(null); setText(""); }
@@ -29,16 +31,17 @@ function Content() {
   }
   async function contact() { const conversation = await freelanceService.openServiceConversation(currentOrder.serviceId); router.push(`/messages?conversation=${conversation.id}`); }
   const cancellation = order.pendingCancellation, requester = cancellation?.requestedRole === (buyer ? "BUYER" : "SELLER");
-  return <main className="mx-auto max-w-5xl space-y-6 px-4 py-8"><header className="flex flex-wrap justify-between gap-4"><div><span className="text-sm text-gray-500">{order.orderNumber}</span><h1 className="text-3xl font-bold">{order.serviceTitle}</h1><p>{buyer ? `Seller: ${order.seller.fullName || order.seller.username}` : `Buyer: ${order.buyer.fullName || order.buyer.username}`}</p></div><Badge>{order.status}</Badge></header>
+  return <main className="mx-auto min-w-0 max-w-5xl space-y-6 overflow-x-hidden px-4 py-8"><header className="flex flex-wrap justify-between gap-4"><div className="min-w-0"><span className="break-all text-sm text-gray-500">{order.orderNumber}</span><h1 className="break-words text-2xl font-bold sm:text-3xl">{order.serviceTitle}</h1><p>{buyer ? `Seller: ${order.seller.fullName || order.seller.username}` : `Buyer: ${order.buyer.fullName || order.buyer.username}`}</p></div><Badge>{order.status}</Badge></header>
     <Card><h2 className="text-xl font-bold">Package snapshot</h2><div className="mt-3 grid gap-2 sm:grid-cols-3"><p><strong>{order.packageTier}: {order.packageName}</strong><br />{order.packageDescription}</p><p>{formatMoney(order.priceAmount, order.currencyCode)}<br />{order.deliveryDays} days</p><p>Revisions {order.usedRevisionCount}/{order.includedRevisionCount}<br />Due: {formatMarketplaceDate(order.deliveryDueAt)}</p></div>
       <p className="mt-4 rounded-lg bg-gray-50 p-3 text-sm font-medium">This order is not a paid status. No payment is processed in this phase.</p></Card>
     <Card><h2 className="text-xl font-bold">Buyer requirements</h2><p className="mt-2 whitespace-pre-wrap">{order.buyerRequirements}</p></Card>
     <section><h2 className="text-xl font-bold">Timeline</h2><div className="mt-3 space-y-3 border-l-2 pl-5"><p>Created · {formatMarketplaceDate(order.createdAt)}</p>{order.startedAt && <p>Started · {formatMarketplaceDate(order.startedAt)}</p>}
       {order.deliveries.map((delivery) => <Card key={delivery.id}><strong>Delivery · {formatMarketplaceDate(delivery.createdAt)}</strong><p className="mt-2 whitespace-pre-wrap">{delivery.message}</p></Card>)}
       {order.revisions.map((item) => <Card key={item.id}><strong>Revision {item.sequenceNumber} · {formatMarketplaceDate(item.createdAt)}</strong><p>{item.reason}</p><small>{item.acknowledgedAt ? `Acknowledged ${formatMarketplaceDate(item.acknowledgedAt)}` : "Awaiting acknowledgement"}</small></Card>)}
+      <FreelanceCancellationHistory requests={order.cancellationHistory} />
       {order.completedAt && <p>Completed · {formatMarketplaceDate(order.completedAt)}</p>}{order.cancelledAt && <p>Cancelled · {formatMarketplaceDate(order.cancelledAt)}</p>}</div></section>
     {cancellation && <Card><h2 className="text-xl font-bold">Pending cancellation</h2><p className="mt-2">{cancellation.requestedRole} requested: {cancellation.reason}</p><p className="text-sm text-gray-500">Previous status: {cancellation.previousOrderStatus}</p>
-      <p className="mt-3 text-sm font-medium">This action changes the order status only. No payment or refund is processed.</p><div className="mt-4 flex gap-2">{requester ? <Button variant="secondary" onClick={() => void run(() => freelanceService.withdrawCancellation(order.id, cancellation.id))}>Withdraw request</Button> : <>
+      <p className="mt-3 text-sm font-medium">This action changes the order status only. No payment or refund is processed.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row">{requester ? <Button variant="secondary" isLoading={pending} onClick={() => void run(() => freelanceService.withdrawCancellation(order.id, cancellation.id))}>Withdraw request</Button> : <>
         <Button onClick={() => confirm("Accept cancellation and cancel this order?") && void run(() => freelanceService.acceptCancellation(order.id, cancellation.id))}>Accept</Button><Button variant="secondary" onClick={() => void run(() => freelanceService.rejectCancellation(order.id, cancellation.id))}>Reject</Button></>}</div></Card>}
     {order.status !== "COMPLETED" && order.status !== "CANCELLED" && <Card><h2 className="text-xl font-bold">Available actions</h2><div className="mt-4 flex flex-wrap gap-2">
       {seller && order.status === "CREATED" && <><Button onClick={() => void run(() => freelanceService.startOrder(order.id))}>Start order</Button><Button variant="secondary" onClick={() => setDialog("reject")}>Reject</Button></>}

@@ -54,7 +54,7 @@ public final class FreelanceDtos {
   public record MediaResponse(
       UUID id, String url, String contentType, Long sizeBytes, int displayOrder) {}
 
-  public record WorkReference(UUID id, String title, int displayOrder) {}
+  public record WorkReference(UUID id, String title, String thumbnailUrl, int displayOrder) {}
 
   public record ServiceResponse(
       UUID id,
@@ -92,6 +92,21 @@ public final class FreelanceDtos {
       int orderCount,
       Instant publishedAt) {}
 
+  public record OwnedServiceSummary(
+      UUID id,
+      String slug,
+      String title,
+      String status,
+      String thumbnailUrl,
+      Category category,
+      BigDecimal lowestPrice,
+      String currencyCode,
+      BigDecimal averageRating,
+      int reviewCount,
+      int orderCount,
+      Instant updatedAt,
+      Instant publishedAt) {}
+
   public record Page<T>(
       List<T> content,
       int page,
@@ -124,6 +139,7 @@ public final class FreelanceDtos {
       String reason,
       String status,
       String previousOrderStatus,
+      String resolverRole,
       Instant createdAt,
       Instant resolvedAt) {}
 
@@ -152,6 +168,7 @@ public final class FreelanceDtos {
       List<Delivery> deliveries,
       List<Revision> revisions,
       Cancellation pendingCancellation,
+      List<Cancellation> cancellationHistory,
       boolean reviewEligible,
       Instant createdAt,
       Instant updatedAt) {}

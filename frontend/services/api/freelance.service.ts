@@ -5,6 +5,7 @@ import type {
   FreelanceCategory, FreelanceConversation, FreelanceDeliveryRequest, FreelanceOrder,
   FreelanceOrderFilters, FreelanceOrderPage, FreelanceReasonRequest, FreelanceReview,
   FreelanceReviewPage, FreelanceSearchFilters, FreelanceService, FreelanceServicePage,
+  FreelanceOwnedServicePage,
   ReorderFreelanceMediaRequest, UpdateFreelanceServiceRequest,
 } from "@/types/freelance";
 
@@ -33,7 +34,7 @@ export const freelanceService = {
     apiRequest<FreelanceServicePage>(`/freelance/services${query(filters)}`),
   getService: (serviceId: string) => apiRequest<FreelanceService>(servicePath(serviceId), { authenticated: true }),
   getMyServices: (page = 0, size = 20) =>
-    apiRequest<FreelanceServicePage>(`/freelance/services/mine${query({ page, size })}`, { authenticated: true }),
+    apiRequest<FreelanceOwnedServicePage>(`/freelance/services/mine${query({ page, size })}`, { authenticated: true }),
   createService: (body: CreateFreelanceServiceRequest) =>
     apiRequest<FreelanceService>("/freelance/services", { method: "POST", authenticated: true, body }),
   updateService: (serviceId: string, body: UpdateFreelanceServiceRequest) =>

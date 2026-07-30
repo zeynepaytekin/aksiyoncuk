@@ -24,8 +24,19 @@ export function getNotificationHref(
   ) {
     return `/applications/view?id=${encodeURIComponent(notification.entityId)}`;
   }
-  if (notification.type.startsWith("FREELANCE_") && notification.entityId) {
+  if (
+    notification.type.startsWith("FREELANCE_") &&
+    notification.entityType === "FREELANCE_ORDER" &&
+    notification.entityId
+  ) {
     return `/freelance/order?order=${encodeURIComponent(notification.entityId)}`;
+  }
+  if (
+    notification.type.startsWith("FREELANCE_") &&
+    notification.entityType === "FREELANCE_SERVICE" &&
+    notification.entityId
+  ) {
+    return `/freelance/service?service=${encodeURIComponent(notification.entityId)}`;
   }
   return null;
 }

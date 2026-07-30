@@ -15,6 +15,7 @@ import { freelanceErrorMessage } from "@/services/api/freelanceErrorMessage";
 import { useAuthStore } from "@/store/auth.store";
 import { useFreelanceStore } from "@/store/freelance.store";
 import { formatMarketplaceDate, formatMoney } from "@/utils/formatFreelance";
+import ServicePortfolioWorks from "./ServicePortfolioWorks";
 
 function Content() {
   const router = useRouter(), params = useSearchParams(), serviceId = params.get("service")?.trim() ?? "";
@@ -61,7 +62,7 @@ function Content() {
         </section>
         <section><h2 className="text-2xl font-bold">About this service</h2><p className="mt-3 whitespace-pre-wrap leading-7 text-gray-700">{service.description}</p></section>
         <section><h2 className="text-2xl font-bold">Portfolio works</h2><div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {service.works.length ? service.works.map((work) => <Link key={work.id} href={`/works/view?work=${work.id}`}><Card>{work.title}</Card></Link>) : <p className="text-gray-500">No portfolio works linked.</p>}</div></section>
+          <ServicePortfolioWorks works={service.works} /></div></section>
         <section><h2 className="text-2xl font-bold">Reviews</h2><div className="mt-3 space-y-3">
           {reviews?.content.map((review) => <Card key={review.id}><div className="flex justify-between"><strong>{review.reviewer.fullName || review.reviewer.username}</strong><span aria-label={`${review.rating} out of 5`}>★ {review.rating}/5</span></div>
             {review.comment && <p className="mt-2 text-gray-700">{review.comment}</p>}<p className="mt-2 text-xs text-gray-500">{formatMarketplaceDate(review.createdAt)}</p></Card>)}

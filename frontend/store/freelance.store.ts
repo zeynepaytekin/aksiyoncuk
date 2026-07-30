@@ -73,16 +73,13 @@ export const useFreelanceStore = create<State>()((set, get) => ({
   async loadMyServices(page = 0) {
     set({ myServicesStatus: "loading", myServicesError: null });
     try {
-      const summaries = await freelanceService.getMyServices(page);
-      const content = await Promise.all(summaries.content.map((service) => freelanceService.getService(service.id)));
-      set({ myServices: { ...summaries, content }, myServicesStatus: "loaded" });
+      set({ myServices: await freelanceService.getMyServices(page), myServicesStatus: "loaded" });
     }
     catch (e) { const error = errorOf(e); set({ myServicesStatus: "error", myServicesError: error }); throw error; }
   },
   async createService(body) {
-    return mutate("create", () => freelanceService.createService(body), set, (service) => set((s) => ({
-      selectedService: service, myServices: s.myServices ? { ...s.myServices, content: [service, ...s.myServices.content] } : null,
-    })));
+    return mutate("create", () => freelanceService.createService(body), set, (service) =>
+      set({ selectedService: service }));
   },
   async updateService(id, body) { return mutate(`update:${id}`, () => freelanceService.updateService(id, body), set, syncService); },
   async publishService(id) { return mutate(`publish:${id}`, () => freelanceService.publishService(id), set, syncService); },
@@ -132,7 +129,19 @@ function syncService(service: FreelanceService) {
     selectedService: s.selectedService?.id === service.id ? service : s.selectedService,
     services: service.status === "PUBLISHED" ? replaceSummary(s.services, service) :
       s.services ? { ...s.services, content: s.services.content.filter((item) => item.id !== service.id) } : null,
-    myServices: s.myServices ? { ...s.myServices, content: s.myServices.content.map((item) => item.id === service.id ? service : item) } : null,
+    myServices: s.myServices ? { ...s.myServices, content: s.myServices.content.map((item) =>
+      item.id === service.id ? {
+        ...item,
+        slug: service.slug,
+        title: service.title,
+        status: service.status,
+        category: service.category,
+        averageRating: service.averageRating,
+        reviewCount: service.reviewCount,
+        orderCount: service.orderCount,
+        updatedAt: service.updatedAt,
+        publishedAt: service.publishedAt,
+      } : item) } : null,
   }));
 }
 async function mutate<T>(key: string, request: () => Promise<T>, set: (value: Partial<State> | ((s: State) => Partial<State>)) => void, sync: (value: T) => void): Promise<T> {
