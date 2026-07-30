@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { apiRequest } from "@/services/api/apiClient";
+import { apiDownload, apiRequest } from "@/services/api/apiClient";
 import { sessionCoordinator } from "@/services/auth/sessionCoordinator";
 
 describe("apiRequest", () => {
@@ -69,6 +69,54 @@ describe("apiRequest", () => {
     await expect(apiRequest("/health")).rejects.toMatchObject({
       code: "NETWORK_ERROR",
       status: 0,
+    });
+  });
+
+  it("retries authenticated Blob downloads after refreshing once", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response("delivery", {
+          status: 200,
+          headers: {
+            "Content-Disposition": 'attachment; filename="delivery.txt"',
+          },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const refresh = vi.fn(async () => {
+      sessionCoordinator.setAccessToken("fresh-token");
+      return "fresh-token";
+    });
+    sessionCoordinator.configure(refresh, vi.fn());
+
+    const result = await apiDownload("/private-download");
+
+    expect(await result.blob.text()).toBe("delivery");
+    expect(result.contentDisposition).toContain("delivery.txt");
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(
+      new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get("Authorization"),
+    ).toBe("Bearer fresh-token");
+  });
+
+  it("preserves structured Blob download errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            code: "FREELANCE_ATTACHMENT_DOWNLOAD_UNAVAILABLE",
+            message: "Unavailable",
+          }),
+          { status: 503 },
+        ),
+      ),
+    );
+    await expect(apiDownload("/private-download")).rejects.toMatchObject({
+      status: 503,
+      code: "FREELANCE_ATTACHMENT_DOWNLOAD_UNAVAILABLE",
     });
   });
 });

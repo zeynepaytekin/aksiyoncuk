@@ -21,6 +21,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,6 +35,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class FreelanceMarketplaceService {
+  private static final Logger LOG = LoggerFactory.getLogger(FreelanceMarketplaceService.class);
   private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2}(?:-[A-Z]{2})?");
   private static final Set<String> TIERS = Set.of("BASIC", "STANDARD", "PREMIUM");
   private static final Set<String> STATUSES =
@@ -511,14 +514,14 @@ public class FreelanceMarketplaceService {
     var records =
         jdbc.query(
             """
-            SELECT storage_key,original_filename,content_type,size_bytes
+            SELECT storage_key,sanitized_filename,content_type,size_bytes
             FROM freelance_delivery_attachments
             WHERE id=? AND delivery_id=? AND order_id=?
             """,
             (rs, n) ->
                 new Object[] {
                   rs.getString("storage_key"),
-                  rs.getString("original_filename"),
+                  rs.getString("sanitized_filename"),
                   rs.getString("content_type"),
                   rs.getLong("size_bytes")
                 },
@@ -529,11 +532,11 @@ public class FreelanceMarketplaceService {
       throw notFound("FREELANCE_ATTACHMENT_NOT_FOUND", "Delivery attachment was not found");
     var record = records.getFirst();
     try {
+      var content = storage.getPrivate((String) record[0]);
+      if (content == null || content.length != (long) record[3])
+        throw new IllegalStateException("Private attachment content is unavailable");
       return new AttachmentDownload(
-          (String) record[1],
-          (String) record[2],
-          (long) record[3],
-          storage.getPrivate((String) record[0]));
+          (String) record[1], (String) record[2], (long) record[3], content);
     } catch (RuntimeException exception) {
       throw new FreelanceException(
           HttpStatus.SERVICE_UNAVAILABLE,
@@ -1519,7 +1522,7 @@ public class FreelanceMarketplaceService {
   private List<DeliveryAttachmentRow> attachmentRowRecords(UUID orderId, UUID deliveryId) {
     var sql =
         """
-        SELECT delivery_id,id,original_filename,content_type,size_bytes,display_order,created_at
+        SELECT delivery_id,id,sanitized_filename,content_type,size_bytes,display_order,created_at
         FROM freelance_delivery_attachments
         WHERE order_id=?
         """
@@ -1534,7 +1537,7 @@ public class FreelanceMarketplaceService {
                 uuid(rs, "delivery_id"),
                 new DeliveryAttachment(
                     uuid(rs, "id"),
-                    rs.getString("original_filename"),
+                    rs.getString("sanitized_filename"),
                     rs.getString("content_type"),
                     rs.getLong("size_bytes"),
                     rs.getInt("display_order"),
@@ -1547,7 +1550,7 @@ public class FreelanceMarketplaceService {
       try {
         storage.deletePrivate(key);
       } catch (RuntimeException ignored) {
-        // Best-effort compensation. The failed transaction never exposes the orphaned key.
+        LOG.warn("Private attachment compensation failed for one object");
       }
     }
   }

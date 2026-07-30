@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   safeDownloadFilename,
+  mergeDeliveryAttachments,
   validateDeliveryAttachments,
 } from "./freelanceDeliveryAttachments";
 
-const file = (name: string, type: string, size = 4) =>
-  new File([new Uint8Array(size)], name, { type });
+const file = (name: string, type: string, size = 4) => {
+  const value = new File([new Uint8Array(Math.min(size, 4))], name, { type });
+  if (size > 4) Object.defineProperty(value, "size", { value: size });
+  return value;
+};
 
 describe("delivery attachment validation", () => {
   it("accepts the phase-one allowlist", () => {
@@ -32,5 +36,25 @@ describe("delivery attachment validation", () => {
         "fallback.pdf",
       ),
     ).toBe("teslim.pdf");
+  });
+
+  it("deduplicates repeated browser selections while preserving order", () => {
+    const first = file("one.txt", "text/plain");
+    const second = file("two.txt", "text/plain");
+    expect(mergeDeliveryAttachments([first], [first, second])).toEqual([
+      first,
+      second,
+    ]);
+  });
+
+  it("rejects total size above 75 MB", () => {
+    expect(
+      validateDeliveryAttachments([
+        file("one.pdf", "application/pdf", 25 * 1024 * 1024),
+        file("two.pdf", "application/pdf", 25 * 1024 * 1024),
+        file("three.pdf", "application/pdf", 25 * 1024 * 1024),
+        file("four.pdf", "application/pdf", 1),
+      ]),
+    ).toMatch(/75 MB/);
   });
 });

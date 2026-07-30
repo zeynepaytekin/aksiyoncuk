@@ -6,6 +6,8 @@ The delivery/redelivery dialog accepts up to five JPEG, PNG, WebP, PDF, plain-te
 
 Client checks provide early feedback, while the backend remains authoritative and validates content signatures. No malware-scanning guarantee is made.
 
+For a browser smoke test, use separate seller and buyer sessions. The seller submits a delivery containing a message plus PNG, PDF, and ZIP files; both users verify the same delivery history and download each file. Network responses must point only to authenticated API download endpoints—never MinIO—and an unrelated account must be denied. The production frontend uses the standard Vercel-compatible `next build`; static export, repository base paths, asset prefixes, and custom output directories are intentionally not configured.
+
 ## Local setup
 
 Requirements: Node.js, npm, the Spring Boot API on port 8080, and the

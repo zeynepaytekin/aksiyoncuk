@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.aksiyoncuk.media.exception.MediaException;
 import com.aksiyoncuk.media.storage.MediaStorage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,6 +60,7 @@ class FreelanceMarketplaceIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
   @Autowired JdbcTemplate jdbc;
+  @Autowired MediaStorage mediaStorage;
   String sellerToken;
   String buyerToken;
   String outsiderToken;
@@ -66,6 +68,7 @@ class FreelanceMarketplaceIntegrationTest {
 
   @BeforeEach
   void setUp() throws Exception {
+    ((TestMediaStorage) mediaStorage).reset();
     jdbc.execute("TRUNCATE TABLE users CASCADE");
     register("seller");
     register("buyer");
@@ -77,6 +80,149 @@ class FreelanceMarketplaceIntegrationTest {
         jdbc.queryForObject(
             "SELECT id FROM freelance_categories WHERE active ORDER BY display_order,id LIMIT 1",
             UUID.class);
+  }
+
+  @Test
+  void deliveryAttachmentLimitsAuthorizationMetadataAndStateAreEnforced() throws Exception {
+    var service = createService(sellerToken, List.of());
+    var serviceId = service.path("id").asText();
+    transition(serviceId, "publish", sellerToken).andExpect(status().isOk());
+    service = getJson("/api/v1/freelance/services/" + serviceId, sellerToken);
+    var packageId = service.path("packages").get(0).path("id").asText();
+    var order = createOrder(serviceId, packageId, "Attachment authorization verification");
+    var orderId = order.path("id").asText();
+    action(orderId, "start", sellerToken, null);
+
+    var request = requestPart("A complete delivery with five attachments");
+    mvc.perform(
+            multipart("/api/v1/freelance/orders/{id}/deliver", orderId)
+                .file(request)
+                .file(textPart("buyer.txt", "content"))
+                .header("Authorization", bearer(buyerToken)))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            multipart("/api/v1/freelance/orders/{id}/deliver", orderId)
+                .file(request)
+                .file(textPart("outsider.txt", "content"))
+                .header("Authorization", bearer(outsiderToken)))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            multipart("/api/v1/freelance/orders/{id}/deliver", orderId)
+                .file(request)
+                .file(textPart("anonymous.txt", "content")))
+        .andExpect(status().isUnauthorized());
+    assertThat(deliveryCount(orderId)).isZero();
+    assertThat(((TestMediaStorage) mediaStorage).privateCount()).isZero();
+
+    var six = multipart("/api/v1/freelance/orders/{id}/deliver", orderId).file(request);
+    for (int index = 0; index < 6; index++)
+      six.file(textPart("too-many-" + index + ".txt", "content"));
+    mvc.perform(six.header("Authorization", bearer(sellerToken)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("FREELANCE_ATTACHMENT_COUNT_EXCEEDED"));
+    assertThat(deliveryCount(orderId)).isZero();
+    assertThat(((TestMediaStorage) mediaStorage).privateCount()).isZero();
+
+    var success = multipart("/api/v1/freelance/orders/{id}/deliver", orderId).file(request);
+    for (int index = 0; index < 5; index++)
+      success.file(textPart("safe-" + index + ".txt", "content-" + index));
+    var result =
+        mvc.perform(success.header("Authorization", bearer(sellerToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.deliveries[0].attachments.length()").value(5))
+            .andExpect(
+                content()
+                    .string(
+                        org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("storage_key"))))
+            .andExpect(
+                content()
+                    .string(
+                        org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("private/freelance"))))
+            .andReturn();
+    var body = mapper.readTree(result.getResponse().getContentAsString());
+    var deliveryId = body.path("deliveries").get(0).path("id").asText();
+    var attachmentId =
+        body.path("deliveries").get(0).path("attachments").get(0).path("id").asText();
+    assertThat(((TestMediaStorage) mediaStorage).privateCount()).isEqualTo(5);
+    assertThat(deliveryCount(orderId)).isEqualTo(1);
+
+    var metadataPath =
+        "/api/v1/freelance/orders/" + orderId + "/deliveries/" + deliveryId + "/attachments";
+    mvc.perform(get(metadataPath).header("Authorization", bearer(buyerToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(5));
+    mvc.perform(get(metadataPath).header("Authorization", bearer(sellerToken)))
+        .andExpect(status().isOk());
+    mvc.perform(get(metadataPath).header("Authorization", bearer(outsiderToken)))
+        .andExpect(status().isForbidden());
+    mvc.perform(get(metadataPath)).andExpect(status().isUnauthorized());
+    mvc.perform(
+            get(
+                    "/api/v1/freelance/orders/{orderId}/deliveries/{deliveryId}/attachments/{attachmentId}/download",
+                    orderId,
+                    UUID.randomUUID(),
+                    attachmentId)
+                .header("Authorization", bearer(buyerToken)))
+        .andExpect(status().isNotFound());
+    ((TestMediaStorage) mediaStorage)
+        .removePrivateObject(
+            jdbc.queryForObject(
+                "SELECT storage_key FROM freelance_delivery_attachments WHERE id=?",
+                String.class,
+                UUID.fromString(attachmentId)));
+    mvc.perform(
+            get(
+                    "/api/v1/freelance/orders/{orderId}/deliveries/{deliveryId}/attachments/{attachmentId}/download",
+                    orderId,
+                    deliveryId,
+                    attachmentId)
+                .header("Authorization", bearer(buyerToken)))
+        .andExpect(status().isServiceUnavailable())
+        .andExpect(jsonPath("$.code").value("FREELANCE_ATTACHMENT_DOWNLOAD_UNAVAILABLE"));
+    mvc.perform(
+            post("/api/v1/freelance/orders/{id}/deliver", orderId)
+                .header("Authorization", bearer(sellerToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    mapper.writeValueAsBytes(Map.of("message", "Cannot deliver after delivery"))))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void partialPrivateUploadFailureCompensatesObjectsAndRollsBackDelivery() throws Exception {
+    var service = createService(sellerToken, List.of());
+    var serviceId = service.path("id").asText();
+    transition(serviceId, "publish", sellerToken).andExpect(status().isOk());
+    service = getJson("/api/v1/freelance/services/" + serviceId, sellerToken);
+    var order =
+        createOrder(
+            serviceId,
+            service.path("packages").get(0).path("id").asText(),
+            "Compensation verification");
+    var orderId = order.path("id").asText();
+    action(orderId, "start", sellerToken, null);
+    ((TestMediaStorage) mediaStorage).failPrivatePutAt(2);
+
+    mvc.perform(
+            multipart("/api/v1/freelance/orders/{id}/deliver", orderId)
+                .file(requestPart("Delivery that must roll back safely"))
+                .file(textPart("first.txt", "first"))
+                .file(textPart("second.txt", "second"))
+                .header("Authorization", bearer(sellerToken)))
+        .andExpect(status().isServiceUnavailable())
+        .andExpect(jsonPath("$.code").value("MEDIA_STORAGE_UNAVAILABLE"))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("private/freelance"))));
+
+    assertThat(deliveryCount(orderId)).isZero();
+    assertThat(((TestMediaStorage) mediaStorage).privateCount()).isZero();
+    assertThat(getJson("/api/v1/freelance/orders/" + orderId, sellerToken).path("status").asText())
+        .isEqualTo("IN_PROGRESS");
   }
 
   @Test
@@ -409,6 +555,37 @@ class FreelanceMarketplaceIntegrationTest {
         body == null ? Map.of() : body);
   }
 
+  private JsonNode getJson(String path, String token) throws Exception {
+    var response =
+        mvc.perform(get(path).header("Authorization", bearer(token)))
+            .andExpect(status().isOk())
+            .andReturn();
+    return mapper.readTree(response.getResponse().getContentAsString());
+  }
+
+  private MockMultipartFile requestPart(String message) throws Exception {
+    return new MockMultipartFile(
+        "request",
+        "",
+        MediaType.APPLICATION_JSON_VALUE,
+        mapper.writeValueAsBytes(Map.of("message", message)));
+  }
+
+  private MockMultipartFile textPart(String filename, String content) {
+    return new MockMultipartFile(
+        "files",
+        filename,
+        MediaType.TEXT_PLAIN_VALUE,
+        content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  }
+
+  private int deliveryCount(String orderId) {
+    return jdbc.queryForObject(
+        "SELECT count(*) FROM freelance_order_deliveries WHERE order_id=?",
+        Integer.class,
+        UUID.fromString(orderId));
+  }
+
   private ResultActions transition(String serviceId, String action, String token) throws Exception {
     return mvc.perform(
         post("/api/v1/freelance/services/{id}/{action}", serviceId, action)
@@ -506,38 +683,67 @@ class FreelanceMarketplaceIntegrationTest {
     @Bean
     @Primary
     MediaStorage mediaStorage() {
-      return new MediaStorage() {
-        private final Set<String> keys = ConcurrentHashMap.newKeySet();
-        private final Map<String, byte[]> privateObjects = new ConcurrentHashMap<>();
+      return new TestMediaStorage();
+    }
+  }
 
-        public void put(String key, byte[] content, String contentType, String filename) {
-          keys.add(key);
-        }
+  static class TestMediaStorage implements MediaStorage {
+    private final Set<String> keys = ConcurrentHashMap.newKeySet();
+    private final Map<String, byte[]> privateObjects = new ConcurrentHashMap<>();
+    private int privatePutAttempts;
+    private int failPrivatePutAt = -1;
 
-        public void delete(String key) {
-          keys.remove(key);
-        }
+    public void put(String key, byte[] content, String contentType, String filename) {
+      keys.add(key);
+    }
 
-        public boolean exists(String key) {
-          return keys.contains(key);
-        }
+    public void delete(String key) {
+      keys.remove(key);
+    }
 
-        public URI resolvePublicUrl(String key) {
-          return URI.create("http://media.test/" + key);
-        }
+    public boolean exists(String key) {
+      return keys.contains(key);
+    }
 
-        public void putPrivate(String key, byte[] content, String contentType, String filename) {
-          privateObjects.put(key, content);
-        }
+    public URI resolvePublicUrl(String key) {
+      return URI.create("http://media.test/" + key);
+    }
 
-        public byte[] getPrivate(String key) {
-          return privateObjects.get(key);
-        }
+    public void putPrivate(String key, byte[] content, String contentType, String filename) {
+      privatePutAttempts++;
+      if (privatePutAttempts == failPrivatePutAt)
+        throw new MediaException(
+            org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+            "MEDIA_STORAGE_UNAVAILABLE",
+            "Private media storage is unavailable");
+      privateObjects.put(key, content);
+    }
 
-        public void deletePrivate(String key) {
-          privateObjects.remove(key);
-        }
-      };
+    public byte[] getPrivate(String key) {
+      return privateObjects.get(key);
+    }
+
+    public void deletePrivate(String key) {
+      privateObjects.remove(key);
+    }
+
+    int privateCount() {
+      return privateObjects.size();
+    }
+
+    void failPrivatePutAt(int attempt) {
+      failPrivatePutAt = attempt;
+    }
+
+    void removePrivateObject(String key) {
+      privateObjects.remove(key);
+    }
+
+    void reset() {
+      keys.clear();
+      privateObjects.clear();
+      privatePutAttempts = 0;
+      failPrivatePutAt = -1;
     }
   }
 }

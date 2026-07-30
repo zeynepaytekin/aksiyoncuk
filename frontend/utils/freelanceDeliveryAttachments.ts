@@ -34,6 +34,24 @@ export function validateDeliveryAttachments(files: File[]): string | null {
   return null;
 }
 
+export function mergeDeliveryAttachments(
+  current: File[],
+  selected: File[],
+): File[] {
+  const result = [...current];
+  const known = new Set(
+    current.map((file) => `${file.name}\0${file.size}\0${file.lastModified}`),
+  );
+  for (const file of selected) {
+    const key = `${file.name}\0${file.size}\0${file.lastModified}`;
+    if (!known.has(key)) {
+      known.add(key);
+      result.push(file);
+    }
+  }
+  return result;
+}
+
 export function readableFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

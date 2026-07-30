@@ -1269,6 +1269,8 @@ Deliveries and redeliveries may include up to five private JPEG, PNG, WebP, PDF,
 
 The multipart delivery action uses an `application/json` `request` part and repeated `files` parts. Supported binary formats receive signature checks in addition to MIME and extension validation. Uploaded objects are compensated when an upload or database transaction fails. This validation is not malware scanning and provides no malware-safety guarantee.
 
+Local smoke verification uses `docker compose up -d postgres minio minio-init`, then the backend dev profile and the frontend development server. Through the normal UI, create seller, buyer, and unrelated accounts; publish a service, create and start an order, and deliver a generated PNG, PDF, and ZIP. Confirm both participants see and download identical bytes, the unrelated account receives an authorization error, and completed or cancelled orders reject another delivery. Inspect MinIO only with authenticated local tooling: delivery objects must exist solely in `MEDIA_PRIVATE_STORAGE_BUCKET`, anonymous list/read requests must fail, and the public media bucket must retain its existing anonymous-read behavior. Stop application processes after the check while leaving PostgreSQL and MinIO healthy.
+
 The Phase 1 marketplace is implemented under `/api/v1/freelance`. It reuses the existing users,
 profiles, works, media storage, direct messaging, notifications, authentication, and structured
 API error response. No payment provider, escrow, wallet, refund, tax, invoice, commission, or
