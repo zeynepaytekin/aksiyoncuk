@@ -5,6 +5,7 @@ import type {
 } from "@/types/auth";
 
 const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+export const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 function getApiBaseUrl(): string {
   if (!configuredBaseUrl?.trim()) {
@@ -79,6 +80,10 @@ export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
+  if (isDemoMode) {
+    const { demoRequest } = await import("@/demo/demoApi");
+    return demoRequest<T>(path, options);
+  }
   const {
     accessToken,
     authenticated = false,
@@ -160,6 +165,9 @@ export async function apiDownload(
   path: string,
   options: Omit<ApiRequestOptions, "body"> = {},
 ): Promise<ApiDownload> {
+  if (isDemoMode) {
+    throw new ApiError(403, "DEMO_ACTION_DISABLED", "Downloads are disabled in the static demo.");
+  }
   const {
     accessToken,
     authenticated = true,

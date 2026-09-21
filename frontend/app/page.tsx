@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-black text-white">
@@ -18,9 +20,17 @@ export default function LandingPage() {
         </p>
 
         <div className="flex flex-col gap-4 sm:flex-row">
+          {isDemoMode && (
+            <Link
+              href="/login"
+              className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:opacity-90"
+            >
+              Try Interactive Demo
+            </Link>
+          )}
           <Link
             href="/register"
-            className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:opacity-90"
+            className={`rounded-full px-6 py-3 text-sm font-semibold transition hover:opacity-90 ${isDemoMode ? "border border-white/20 text-white hover:bg-white/10" : "bg-white text-black"}`}
           >
             Get Started
           </Link>

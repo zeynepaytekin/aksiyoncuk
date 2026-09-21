@@ -11,6 +11,7 @@ import FormField from "@/components/ui/FormField";
 import Input from "@/components/ui/Input";
 import { getAuthErrorMessage } from "@/services/api/authErrorMessage";
 import { useAuthStore } from "@/store/auth.store";
+import { isDemoMode } from "@/services/api/apiClient";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const status = useAuthStore((state) => state.status);
   const login = useAuthStore((state) => state.login);
   const user = useAuthStore((state) => state.user);
+  const enterDemoSession = useAuthStore((state) => state.enterDemoSession);
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -97,6 +99,26 @@ export default function LoginPage() {
             Sign In
           </Button>
         </form>
+
+        {isDemoMode && (
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <Button
+              type="button"
+              variant="secondary"
+              size="auth"
+              className="w-full"
+              onClick={() => {
+                enterDemoSession();
+                router.push("/home");
+              }}
+            >
+              Try the interactive demo
+            </Button>
+            <p className="mt-2 text-center text-xs text-gray-500">
+              Uses fictional, in-memory data. No credentials or backend connection.
+            </p>
+          </div>
+        )}
 
         <p className="mt-6 text-center text-sm text-gray-500">
           Don&apos;t have an account?{" "}

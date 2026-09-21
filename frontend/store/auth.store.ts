@@ -23,6 +23,7 @@ import type {
   LoginRequest,
   RegistrationRequest,
 } from "@/types/auth";
+import { isDemoMode } from "@/services/api/apiClient";
 
 export type AuthenticationStatus =
   | "idle"
@@ -48,6 +49,7 @@ type AuthState = {
   logout: () => Promise<void>;
   clearSession: () => void;
   updateUser: (user: AuthUser) => void;
+  enterDemoSession: () => void;
 };
 
 let initializationPromise: Promise<void> | null = null;
@@ -222,6 +224,36 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   updateUser(user) {
     set({ user });
+  },
+
+  enterDemoSession() {
+    if (!isDemoMode) return;
+    applySession(
+      {
+        accessToken: "demo-session-token-not-a-jwt",
+        accessTokenExpiresAt: "2099-01-01T00:00:00Z",
+        refreshToken: "demo-refresh-marker",
+        refreshTokenExpiresAt: "2099-01-01T00:00:00Z",
+        tokenType: "Bearer",
+        user: {
+          id: "demo-user",
+          email: "visitor@example.invalid",
+          username: "maya.rivers",
+          fullName: "Maya Rivers",
+          status: "ACTIVE",
+        },
+      },
+      set,
+    );
+    postsStateCoordinator.authenticationChanged(true);
+    commentsStateCoordinator.authenticationChanged();
+    worksStateCoordinator.authenticationChanged(true);
+    jobsStateCoordinator.authenticationChanged(true);
+    networkStateCoordinator.authenticationChanged(true);
+    notificationsStateCoordinator.authenticationChanged(true);
+    searchStateCoordinator.authenticationChanged(true);
+    messagingStateCoordinator.authenticationChanged(true);
+    freelanceStateCoordinator.authenticationChanged(true);
   },
 }));
 
