@@ -16,6 +16,7 @@ type State = {
   categories: FreelanceCategory[]; categoriesStatus: Status; categoriesError: ApiError | null;
   services: FreelanceServicePage | null; filters: FreelanceSearchFilters; searchStatus: Status; searchError: ApiError | null;
   selectedService: FreelanceService | null; serviceStatus: Status; serviceError: ApiError | null;
+  savedServices: FreelanceServicePage | null; savedStatus: Status; savedError: ApiError | null;
   myServices: FreelanceOwnedServicePage | null; myServicesStatus: Status; myServicesError: ApiError | null;
   buyingOrders: FreelanceOrderPage | null; sellingOrders: FreelanceOrderPage | null;
   buyingStatus: Status; sellingStatus: Status; ordersError: ApiError | null;
@@ -24,6 +25,7 @@ type State = {
   mutations: Mutation; mutationErrors: Record<string, ApiError | null>;
   loadCategories(): Promise<void>; searchServices(filters?: FreelanceSearchFilters): Promise<void>;
   loadService(id: string): Promise<void>; loadMyServices(page?: number): Promise<void>;
+  loadSavedServices(page?: number): Promise<void>; setServiceSaved(id: string, saved: boolean): Promise<void>;
   createService(body: CreateFreelanceServiceRequest): Promise<FreelanceService>;
   updateService(id: string, body: UpdateFreelanceServiceRequest): Promise<FreelanceService>;
   publishService(id: string): Promise<FreelanceService>; pauseService(id: string): Promise<FreelanceService>;
@@ -48,6 +50,7 @@ const replaceOrder = (page: FreelanceOrderPage | null, order: FreelanceOrder) =>
 export const useFreelanceStore = create<State>()((set, get) => ({
   categories: [], categoriesStatus: "idle", categoriesError: null, services: null, filters: {},
   searchStatus: "idle", searchError: null, selectedService: null, serviceStatus: "idle", serviceError: null,
+  savedServices: null, savedStatus: "idle", savedError: null,
   myServices: null, myServicesStatus: "idle", myServicesError: null, buyingOrders: null, sellingOrders: null,
   buyingStatus: "idle", sellingStatus: "idle", ordersError: null, selectedOrder: null, orderStatus: "idle",
   orderError: null, reviews: null, reviewsStatus: "idle", reviewsError: null, mutations: {}, mutationErrors: {},
@@ -69,6 +72,29 @@ export const useFreelanceStore = create<State>()((set, get) => ({
     const sequence = ++serviceSequence; set({ serviceStatus: "loading", serviceError: null });
     try { const selectedService = await freelanceService.getService(id); if (sequence === serviceSequence) set({ selectedService, serviceStatus: "loaded" }); }
     catch (e) { const error = errorOf(e); if (sequence === serviceSequence) set({ serviceStatus: "error", serviceError: error }); throw error; }
+  },
+  async loadSavedServices(page = 0) {
+    set({ savedStatus: "loading", savedError: null });
+    try { set({ savedServices: await freelanceService.getSavedServices(page), savedStatus: "loaded" }); }
+    catch (e) { const error = errorOf(e); set({ savedStatus: "error", savedError: error }); throw error; }
+  },
+  async setServiceSaved(id, saved) {
+    const key = `saved:${id}`;
+    if (get().mutations[key] === "loading") return;
+    await mutate(
+      key,
+      () => saved ? freelanceService.saveService(id) : freelanceService.unsaveService(id),
+      set,
+      (result) => set((state) => ({
+        services: updateSaved(state.services, id, result.saved),
+        savedServices: result.saved
+          ? updateSaved(state.savedServices, id, true)
+          : removeSaved(state.savedServices, id),
+        selectedService: state.selectedService?.id === id
+          ? { ...state.selectedService, isSaved: result.saved }
+          : state.selectedService,
+      })),
+    );
   },
   async loadMyServices(page = 0) {
     set({ myServicesStatus: "loading", myServicesError: null });
@@ -119,9 +145,10 @@ export const useFreelanceStore = create<State>()((set, get) => ({
     await get().loadOrder(orderId);
   },
   clearOnLogout() {
-    serviceSequence++; orderSequence++; set({ selectedService: null, myServices: null, buyingOrders: null,
+    serviceSequence++; orderSequence++; set((state) => ({ selectedService: null, savedServices: null, myServices: null, buyingOrders: null,
       sellingOrders: null, selectedOrder: null, myServicesStatus: "idle", buyingStatus: "idle", sellingStatus: "idle",
-      orderStatus: "idle", mutations: {}, mutationErrors: {} });
+      services: state.services ? { ...state.services, content: state.services.content.map((item) => ({ ...item, isSaved: false })) } : null,
+      savedStatus: "idle", orderStatus: "idle", mutations: {}, mutationErrors: {} }));
   },
 }));
 function syncService(service: FreelanceService) {
@@ -144,6 +171,20 @@ function syncService(service: FreelanceService) {
       } : item) } : null,
   }));
 }
+const updateSaved = (page: FreelanceServicePage | null, id: string, saved: boolean) =>
+  page ? { ...page, content: page.content.map((item) => item.id === id ? { ...item, isSaved: saved } : item) } : page;
+const removeSaved = (page: FreelanceServicePage | null, id: string) => {
+  if (!page || !page.content.some((item) => item.id === id)) return page;
+  const totalElements = Math.max(0, page.totalElements - 1);
+  const totalPages = totalElements === 0 ? 0 : Math.ceil(totalElements / page.size);
+  return {
+    ...page,
+    content: page.content.filter((item) => item.id !== id),
+    totalElements,
+    totalPages,
+    last: page.page + 1 >= totalPages,
+  };
+};
 async function mutate<T>(key: string, request: () => Promise<T>, set: (value: Partial<State> | ((s: State) => Partial<State>)) => void, sync: (value: T) => void): Promise<T> {
   set((s) => ({ mutations: { ...s.mutations, [key]: "loading" }, mutationErrors: { ...s.mutationErrors, [key]: null } }));
   try { const value = await request(); sync(value); set((s) => ({ mutations: { ...s.mutations, [key]: "loaded" } })); return value; }

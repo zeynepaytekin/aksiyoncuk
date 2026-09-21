@@ -5,6 +5,8 @@ import type {
   FreelanceCategory, FreelanceConversation, FreelanceDeliveryRequest, FreelanceOrder,
   FreelanceOrderFilters, FreelanceOrderPage, FreelanceReasonRequest, FreelanceReview,
   FreelanceReviewPage, FreelanceSearchFilters, FreelanceService, FreelanceServicePage,
+  FreelanceReviewSummary,
+  FreelanceSavedState,
   FreelanceOwnedServicePage,
   ReorderFreelanceMediaRequest, UpdateFreelanceServiceRequest,
 } from "@/types/freelance";
@@ -32,6 +34,14 @@ export const freelanceService = {
   getCategoryBySlug: (slug: string) => apiRequest<FreelanceCategory>(`/freelance/categories/${encoded(slug)}`),
   searchServices: (filters: FreelanceSearchFilters = {}) =>
     apiRequest<FreelanceServicePage>(`/freelance/services${query(filters)}`),
+  saveService: (serviceId: string) =>
+    apiRequest<FreelanceSavedState>(`${servicePath(serviceId)}/saved`, { method: "PUT", authenticated: true }),
+  unsaveService: (serviceId: string) =>
+    apiRequest<FreelanceSavedState>(`${servicePath(serviceId)}/saved`, { method: "DELETE", authenticated: true }),
+  getSavedState: (serviceId: string) =>
+    apiRequest<FreelanceSavedState>(`${servicePath(serviceId)}/saved`, { authenticated: true }),
+  getSavedServices: (page = 0, size = 12) =>
+    apiRequest<FreelanceServicePage>(`/freelance/me/saved-services${query({ page, size })}`, { authenticated: true }),
   getService: (serviceId: string) => apiRequest<FreelanceService>(servicePath(serviceId), { authenticated: true }),
   getMyServices: (page = 0, size = 20) =>
     apiRequest<FreelanceOwnedServicePage>(`/freelance/services/mine${query({ page, size })}`, { authenticated: true }),
@@ -107,7 +117,13 @@ export const freelanceService = {
   withdrawCancellation: (orderId: string, requestId: string) =>
     action(`${orderPath(orderId)}/cancellation-requests/${encoded(requestId)}/withdraw`),
   createReview: (orderId: string, body: CreateFreelanceReviewRequest) =>
-    apiRequest<FreelanceReview>(`${orderPath(orderId)}/review`, { method: "POST", authenticated: true, body }),
+    apiRequest<FreelanceReview>(`${orderPath(orderId)}/reviews`, { method: "POST", authenticated: true, body }),
+  getOrderReviews: (orderId: string) =>
+    apiRequest<FreelanceReview[]>(`${orderPath(orderId)}/reviews`, { authenticated: true }),
+  getUserReviews: (userId: string, page = 0, size = 20) =>
+    apiRequest<FreelanceReviewPage>(`/freelance/users/${encoded(userId)}/reviews${query({ page, size })}`),
+  getUserReviewSummary: (userId: string) =>
+    apiRequest<FreelanceReviewSummary>(`/freelance/users/${encoded(userId)}/review-summary`),
   getServiceReviews: (serviceId: string, page = 0, size = 20) =>
     apiRequest<FreelanceReviewPage>(`${servicePath(serviceId)}/reviews${query({ page, size })}`),
 };
