@@ -42,8 +42,11 @@ export default function ProfileHeader({
   const pending = followStatus === "loading";
 
   return (
-    <Card padding="none" className="overflow-hidden">
-      <div className="h-40 bg-black">
+    <Card padding="none" className="overflow-hidden border-[#191815] shadow-[5px_5px_0_#f5a56f]">
+      <div className="relative h-44 overflow-hidden bg-[#fbd8bf]">
+        <div className="absolute -left-10 -top-24 h-60 w-60 rounded-full border border-[#191815] bg-[#f7e98b]" />
+        <div className="absolute right-12 top-8 rotate-[-8deg] text-7xl font-black text-[#191815]/10">CREATE</div>
+        <div className="absolute bottom-4 right-6 rounded-full border border-[#191815] bg-[#fffdf8] px-4 py-2 text-xs font-bold">open to collaboration ✦</div>
         {profile.coverUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={profile.coverUrl} alt={`${user.fullName}'s cover`} className="h-full w-full object-cover" />
@@ -55,7 +58,7 @@ export default function ProfileHeader({
             <Avatar src={profile.avatarUrl ?? undefined} alt={`${user.fullName}'s profile photo`}
               fallback={user.fullName.slice(0, 1).toUpperCase()} size="xl" className="border-4 border-white" />
             <div className="pb-2">
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="display-type text-4xl text-[#191815]">
                 {user.fullName}
               </h1>
               <p className="text-sm text-gray-500">

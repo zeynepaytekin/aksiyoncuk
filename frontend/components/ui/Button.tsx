@@ -28,11 +28,11 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-black text-white hover:opacity-90",
+  primary: "border border-[#191815] bg-[#191815] text-white shadow-[2px_2px_0_#f5a56f] hover:-translate-y-0.5 hover:shadow-[3px_3px_0_#f5a56f] active:translate-y-0 active:shadow-none",
   secondary:
-    "border border-gray-300 text-gray-700 hover:bg-gray-50",
-  soft: "bg-gray-100 text-gray-700 hover:bg-gray-200",
-  ghost: "text-gray-500 hover:text-black",
+    "border border-[#bdb4a6] bg-[#fffdf8] text-[#302d28] hover:border-[#191815] hover:bg-[#f7e98b]",
+  soft: "border border-[#f3c5a4] bg-[#fbd8bf] text-[#302d28] hover:bg-[#f5c49f]",
+  ghost: "text-[#706b62] hover:bg-[#f7e98b]/50 hover:text-[#191815]",
   unstyled: "",
 };
 
@@ -76,7 +76,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
       disabled={isDisabled}
       aria-busy={isLoading || undefined}
       className={cn(
-        "disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black",
+        "inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#191815]",
         variantClasses[variant],
         sizeClasses[size],
         shapeClasses[shape],

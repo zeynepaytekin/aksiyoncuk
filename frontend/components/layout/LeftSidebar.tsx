@@ -4,13 +4,14 @@ import Card from "@/components/ui/Card";
 
 export default function LeftSidebar() {
   return (
-    <Card as="aside">
+    <Card as="aside" className="overflow-hidden border-[#191815] shadow-[3px_3px_0_#f7e98b]">
       <div className="flex flex-col items-center text-center">
         <Avatar size="lg" className="mb-4" />
-        <h2 className="text-lg font-semibold text-gray-900">Zeynep Aytekin</h2>
-        <p className="text-sm text-gray-500">Director / Actor / Creator</p>
+        <span className="mb-2 rounded-full bg-[#fbd8bf] px-3 py-1 text-[10px] font-black uppercase tracking-wider">your creative corner</span>
+        <h2 className="text-xl font-black tracking-[-.03em] text-[#191815]">Maya Rivers</h2>
+        <p className="text-sm text-[#706b62]">Documentary Director</p>
         <p className="mt-3 text-sm text-gray-600">
-          Film ve yaratıcı sektör profesyonelleri için bağlantılar, projeler ve fırsatlar.
+          Exploring memory, place, and everyday craft—one small story at a time.
         </p>
       </div>
 

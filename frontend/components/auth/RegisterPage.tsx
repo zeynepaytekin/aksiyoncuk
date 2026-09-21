@@ -52,10 +52,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
-      <Card padding="none" className="w-full max-w-md p-8">
+    <main className="brand-canvas relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
+      <div className="absolute left-[7%] top-[15%] hidden rotate-[-7deg] rounded-[1.5rem] border border-[#191815] bg-[#fbd8bf] px-5 py-4 text-sm font-bold shadow-[4px_4px_0_#191815] md:block">meet → make → share</div>
+      <Card padding="none" className="relative w-full max-w-md border-[#191815] p-8 shadow-[7px_7px_0_#f7e98b]">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
+          <p className="mb-3 text-xs font-black uppercase tracking-[.16em] text-[#a05e37]">Join the scene</p>
+          <h1 className="display-type text-5xl text-[#191815]">Make your corner.</h1>
           <p className="mt-2 text-sm text-gray-500">
             Join Aksiyoncuk and build your creative network
           </p>

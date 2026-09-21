@@ -87,9 +87,13 @@ export default function Feed() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       {user ? (
-        <Card padding="sm">
+        <Card padding="sm" className="relative overflow-hidden border-[#191815] shadow-[4px_4px_0_#f5a56f]">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#5f5a52]">Share a spark</p>
+            <span className="rotate-6 rounded-full bg-[#f7e98b] px-3 py-1 text-[10px] font-bold">unfinished is welcome ✦</span>
+          </div>
           <TextArea
             value={newPost}
             onChange={(event) => setNewPost(event.target.value)}
@@ -113,7 +117,7 @@ export default function Feed() {
               isLoading={createStatus === "loading" || uploading}
               loadingText={uploading ? "Uploading images..." : "Posting..."}
             >
-              Share Post
+              Put it out there →
             </Button>
           </div>
           {createError && (

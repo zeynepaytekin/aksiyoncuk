@@ -8,7 +8,7 @@ type AppShellProps = {
 
 export default function AppShell({ children }: AppShellProps) {
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
+    <main className="brand-canvas min-h-screen text-[#191815]">
       <Navbar />
       {children}
     </main>

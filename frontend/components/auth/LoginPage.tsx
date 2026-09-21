@@ -52,10 +52,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
-      <Card padding="none" className="w-full max-w-md p-8">
+    <main className="brand-canvas relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
+      <div className="absolute left-[8%] top-[14%] hidden rotate-[-8deg] rounded-full border border-[#191815] bg-[#f7e98b] px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#191815] md:block">ideas live here ✦</div>
+      <div className="absolute bottom-[12%] right-[8%] hidden h-28 w-28 rotate-12 rounded-[35%_65%_55%_45%] border border-[#191815] bg-[#fbd8bf] md:block" />
+      <Card padding="none" className="relative w-full max-w-md border-[#191815] p-8 shadow-[7px_7px_0_#f5a56f]">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
+          <p className="mb-3 text-xs font-black uppercase tracking-[.16em] text-[#a05e37]">Come on in</p>
+          <h1 className="display-type text-5xl text-[#191815]">Welcome back.</h1>
           <p className="mt-2 text-sm text-gray-500">
             Sign in to your Aksiyoncuk account
           </p>

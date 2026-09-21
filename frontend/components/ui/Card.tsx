@@ -29,7 +29,7 @@ export default function Card({
   return (
     <Component
       className={cn(
-        "rounded-2xl border border-gray-200 bg-white shadow-sm",
+        "rounded-[1.35rem] border border-[#d9d1c3] bg-[#fffdf8] shadow-[0_2px_0_rgba(25,24,21,0.04)] transition duration-200 hover:border-[#aaa194]",
         paddingClasses[padding],
         className,
       )}

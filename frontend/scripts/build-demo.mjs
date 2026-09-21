@@ -1,7 +1,10 @@
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const nextExecutable = process.platform === "win32" ? "next.cmd" : "next";
-const result = spawnSync(nextExecutable, ["build"], {
+const nextExecutable = fileURLToPath(
+  new URL("../node_modules/next/dist/bin/next", import.meta.url),
+);
+const result = spawnSync(process.execPath, [nextExecutable, "build"], {
   cwd: process.cwd(),
   env: {
     ...process.env,

@@ -115,9 +115,11 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
 
   const body = (
     <>
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-semibold text-gray-900">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 rotate-[-3deg] items-center justify-center rounded-[42%_58%_55%_45%] border border-[#191815] bg-[#f7e98b] font-black shadow-[2px_2px_0_#f5a56f]">{post.author.fullName.slice(0, 1)}</span>
+          <div>
+          <h3 className="font-bold text-[#191815]">
             {post.author.fullName}
           </h3>
           <p className="text-xs text-gray-500">
@@ -129,6 +131,7 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
           <time className="text-xs text-gray-400" dateTime={post.createdAt}>
             {formatUtcDate(post.createdAt)}
           </time>
+          </div>
         </div>
         {post.ownedByCurrentUser && (
           <Dropdown
@@ -158,7 +161,7 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
         )}
       </div>
 
-      <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
+      <p className="whitespace-pre-wrap text-[15px] leading-7 text-[#37332e]">
         {post.content}
       </p>
       <MediaGallery
@@ -167,7 +170,7 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
         compact={compact}
       />
 
-      <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
+      <div className="mt-5 flex flex-wrap gap-2 border-t border-[#e4ddd1] pt-4">
         {user ? (
           <Button
             variant={post.likedByCurrentUser ? "soft" : "ghost"}
@@ -375,6 +378,6 @@ export default function PostCard({ compact = false, post }: PostCardProps) {
   return compact ? (
     <article className="rounded-xl border border-gray-200 p-4">{body}</article>
   ) : (
-    <Card as="article">{body}</Card>
+    <Card as="article" className="hover:-translate-y-0.5 hover:shadow-[3px_3px_0_#e8dfd1]">{body}</Card>
   );
 }
