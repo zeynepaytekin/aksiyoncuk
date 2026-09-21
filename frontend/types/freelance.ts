@@ -4,6 +4,7 @@ export type FreelanceServiceStatus = "DRAFT" | "PUBLISHED" | "PAUSED" | "ARCHIVE
 export type FreelancePackageTier = "BASIC" | "STANDARD" | "PREMIUM";
 export type FreelanceSearchSort =
   | "NEWEST"
+  | "OLDEST"
   | "PRICE_ASC"
   | "PRICE_DESC"
   | "RATING_DESC"
@@ -79,13 +80,14 @@ export type FreelanceService = {
   averageRating: number | null;
   reviewCount: number;
   orderCount: number;
+  isSaved: boolean;
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
 export type FreelanceServiceSummary = Pick<
   FreelanceService,
-  "id" | "slug" | "title" | "shortDescription" | "category" | "seller" | "averageRating" | "reviewCount" | "orderCount" | "publishedAt"
+  "id" | "slug" | "title" | "shortDescription" | "category" | "seller" | "averageRating" | "reviewCount" | "orderCount" | "isSaved" | "publishedAt"
 > & {
   thumbnailUrl: string | null;
   lowestPrice: number;
@@ -102,6 +104,7 @@ export type FreelancePage<T> = {
   last: boolean;
 };
 export type FreelanceServicePage = FreelancePage<FreelanceServiceSummary>;
+export type FreelanceSavedState = { saved: boolean };
 export type FreelanceOwnedServiceSummary = {
   id: string;
   slug: string;
@@ -122,6 +125,7 @@ export type FreelanceSearchFilters = {
   q?: string;
   category?: string;
   seller?: string;
+  sellerId?: string;
   minPrice?: string;
   maxPrice?: string;
   deliveryDaysMax?: number;
@@ -189,6 +193,7 @@ export type FreelanceOrder = {
   revisions: FreelanceRevisionRequest[];
   pendingCancellation: FreelanceCancellationRequest | null;
   cancellationHistory: FreelanceCancellationRequest[];
+  reviews: FreelanceReview[];
   reviewEligible: boolean;
   createdAt: string;
   updatedAt: string;
@@ -197,12 +202,21 @@ export type FreelanceOrderSummary = FreelanceOrder;
 export type FreelanceOrderPage = FreelancePage<FreelanceOrder>;
 export type FreelanceReview = {
   id: string;
+  orderId: string;
+  serviceId: string;
+  serviceTitle: string;
   reviewer: FreelanceSellerSummary;
+  reviewee: FreelanceSellerSummary;
+  reviewerRole: "BUYER" | "SELLER";
   rating: number;
   comment: string | null;
   createdAt: string;
 };
 export type FreelanceReviewPage = FreelancePage<FreelanceReview>;
+export type FreelanceReviewSummary = {
+  averageRating: number | null;
+  reviewCount: number;
+};
 
 export type FreelancePackageRequest = {
   tier: FreelancePackageTier;
